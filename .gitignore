@@ -1,0 +1,13 @@
+# dependencies
+/node_modules
+
+#ouput file
+/dist
+
+# local env files
+.env
+.vercel
+
+# local misc
+uploads
+/scripts
