@@ -70,3 +70,17 @@ export interface IProperty extends Document {
     images?: string[]; // URLs of reviewer upload (optional)
     review_date: Date; // (auto)
   };
+
+  export interface ILandmark extends Document {
+    title: string // what the landmark is called
+    property: Types.ObjectId; // Foreing key referencing property
+    image?: string,
+    distance: number; // how far from referenced property (in km)
+    position_description: string, // derived from LocationProps
+    map_location?: {
+      type: 'Point';
+      coordinates: [number, number];
+    };
+    created_at: Date;
+    updated_at: Date
+  }
