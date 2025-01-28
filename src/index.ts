@@ -1,7 +1,7 @@
 import dotenv from "dotenv"
 import app from "./utils/app"
 import { env } from "./utils/env";
-// import { connectDB } from "./config/dbConnection";
+import { connectDB } from "./config/dbConnection";
 
 dotenv.config();
 
@@ -9,7 +9,7 @@ const startServer = async () => {
   console.info("Initiating server setup...");
   try {
     // Establish connection to MongoDB
-    // await connectDB();
+    await connectDB();
 
     // In a non-serverless environment, start the server
     if (env.NODE_ENV !== 'production') {
