@@ -9,7 +9,7 @@ export interface IUser extends Document {
     email?: string; // for notification    
     phone?: string; // URLs of reviewer upload (optional)
     created_at: Date; // (auto)
-}
+};
 
 export interface IProperty extends Document {
     banner: string; // URL of the property image or image with index = 0
@@ -51,4 +51,22 @@ export interface IProperty extends Document {
     };
     status: string; // (available, unavilable)
     social_handles: Types.Map<string>;
-  }
+  };
+
+  export interface IPropertyReview extends Document {
+    rating: number; // Rating score (0.0 to 5.0)
+    comment?: string; // user review text (optional)
+    review_giver: Types.ObjectId; // Foreing key referencing userId
+    property: Types.ObjectId; // Foreing key referencing property under review
+    images?: string[]; // URLs of reviewer upload (optional)
+    review_date: Date; // (auto)
+  };
+
+  export interface IAgentReview extends Document {
+    rating: number; // Rating score (0.0 to 5.0)
+    comment?: string; // user review text (optional)
+    review_giver: Types.ObjectId; // Foreing key referencing userId
+    review_receiver: Types.ObjectId; // Foreing key referencing property under review
+    images?: string[]; // URLs of reviewer upload (optional)
+    review_date: Date; // (auto)
+  };

@@ -1,8 +1,6 @@
 import mongoose, { Schema, SchemaTypes } from "mongoose";
-import slugify from "slugify";
 import { IAgent } from "../types";
 import User from "./user";
-import { PropertyStatus } from "./enums/propertyStatus";
 import { AgentStatus } from "./enums/agentStatus";
 
 const agentSchema = new Schema<IAgent>(

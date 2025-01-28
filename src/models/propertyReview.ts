@@ -1,0 +1,45 @@
+import mongoose, { Schema, SchemaTypes } from "mongoose";
+import { IPropertyReview } from "../types";
+import User from "./user";
+import Property from "./property";
+import { RatingScale } from "./enums/ratingScale";
+
+const propertyReviewSchema = new Schema<IPropertyReview>(
+  {
+    review_giver: {
+      type: SchemaTypes.ObjectId,
+      ref: User,
+      required: true
+    },
+    property: {
+      type: SchemaTypes.ObjectId,
+      ref: Property,
+      required: true
+    },
+    images: {
+      type: [String],
+      default: [""],
+      required: false
+    },
+    rating: {
+      type: Number,
+      enum: Object.values(RatingScale).filter(value => typeof value === 'number'),
+      required: true,
+    },
+    comment: {
+      type: String,
+      required: false,
+      default: ""
+    },
+    review_date: {
+      type: Date,
+      immutable: true,
+      required: true,
+      default: () => Date.now(),
+    }
+  }
+);
+
+const PropertyReview = mongoose.model<IPropertyReview>("PropertyReview", propertyReviewSchema);
+
+export default PropertyReview;
