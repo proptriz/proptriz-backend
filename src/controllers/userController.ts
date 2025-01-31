@@ -30,6 +30,18 @@ const UserController = {
     }
   },
 
+  // verify is user is login
+  async authenticate(req: Request, res: Response) {
+    try {
+      const authUser = req.currentUser;
+      console.log("User authentication successfully:", authUser);
+      res.status(200).json(authUser);
+    } catch (error: any) {
+      console.error("user authentication error:", error.message);
+      res.status(401).json({ success: false, message: error.message });
+    }
+  },
+
   // Facebook Authentication (Placeholder)
   async facebookAuth(req: Request, res: Response) {
     try {
