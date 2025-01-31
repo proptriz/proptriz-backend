@@ -21,6 +21,7 @@ export interface IProperty extends Document {
     category: string; // The class of property (e.g. house, land, shop, office, hotel )
     period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)
     negotiable: boolean; // (true/false)
+    property_terms?: string // agent terms and condit
     images: string[]; //Other property images for gallery
     agent: Types.ObjectId; //foreign key representing agent that list the property
     map_location?: {

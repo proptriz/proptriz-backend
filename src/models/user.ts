@@ -24,9 +24,9 @@ const userSchema = new Schema<IUser>(
     },
     phone: {
       type: Number,
-      maxlength: 12,
+      maxlength: 15,
       required: false,
-      default: null
+      null: true
     },
     created_at: {
       type: Date,

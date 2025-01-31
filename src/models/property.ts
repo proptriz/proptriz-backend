@@ -54,6 +54,10 @@ const propertySchema = new Schema<IProperty>(
       default: true,
       required: true
     },
+    property_terms: {
+      type:String,
+      required: false
+    },
     images: {
       type: [String],
       default: [""],

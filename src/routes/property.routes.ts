@@ -1,12 +1,12 @@
 import { Router } from "express";
-import * as propertyController from "../controllers/propertyController";
+import PropertyController from "../controllers/propertyController";
 
 const propertyRoutes = Router();
 
-propertyRoutes.get("/all", propertyController.getAllProps);
-propertyRoutes.get("/:pid", propertyController.getProp);
-propertyRoutes.post("/add", propertyController.addProp);
-propertyRoutes.put("/update/:pid", propertyController.updateProp);
-propertyRoutes.delete("/delete/:pid", propertyController.deleteProp);
+propertyRoutes.get("/all", PropertyController.getAllProperties);
+propertyRoutes.get("/:pid", PropertyController.getPropertyById);
+propertyRoutes.post("/add", PropertyController.addProperty);
+propertyRoutes.put("/update/:pid", PropertyController.updateProperty);
+propertyRoutes.delete("/delete/:pid", PropertyController.deleteProperty);
 
 export default propertyRoutes;
