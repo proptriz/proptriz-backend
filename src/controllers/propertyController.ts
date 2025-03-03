@@ -19,11 +19,11 @@ const PropertyController = {
   // Get a property by ID
   async getPropertyById(req: Request, res: Response) {
     try {
-      console.log("Fetching property with ID:", req.params.id);
-      const propertyId = req.params.id;
+      console.log("Fetching property with ID:", req.params.pid);
+      const propertyId = req.params.pid;
       const property = await PropertyService.getPropertyById(propertyId);
       console.log("Property fetched successfully:", property);
-      res.status(200).json({ success: true, data: property });
+      res.status(200).json( property );
     } catch (error: any) {
       console.error("Error fetching property by ID:", error.message);
       res.status(404).json({ success: false, message: error.message });
@@ -37,7 +37,7 @@ const PropertyController = {
       const filters = req.query;
       const properties = await PropertyService.getProperties(filters);
       console.log("Properties fetched successfully:", properties);
-      res.status(200).json({ success: true, data: properties });
+      res.status(200).json( properties );
     } catch (error: any) {
       console.error("Error fetching all properties:", error.message);
       res.status(500).json({ success: false, message: error.message });
