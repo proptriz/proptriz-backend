@@ -26,7 +26,7 @@ const UserController = {
       res.status(200).json(result);
     } catch (error: any) {
       console.error("Login error:", error.message);
-      res.status(401).json({ success: false, message: error.message });
+      res.status(401).json({ success: false, message: error.message }); 
     }
   },
 
