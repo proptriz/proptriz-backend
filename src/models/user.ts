@@ -28,18 +28,12 @@ const userSchema = new Schema<IUser>(
       required: false,
       null: true
     },
-    created_at: {
-      type: Date,
-      default: () => Date.now(),
-      immutable: true,
-      required: true
-    },
     image: {
       type: String,
       required: false,
       default: ""
     }
-  }
+  }, { timestamps: true }
 );
 
 const User = mongoose.model<IUser>("User", userSchema);

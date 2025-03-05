@@ -31,13 +31,7 @@ const propertyReviewSchema = new Schema<IPropertyReview>(
       required: false,
       default: ""
     },
-    review_date: {
-      type: Date,
-      immutable: true,
-      required: true,
-      default: () => Date.now(),
-    }
-  }
+  }, { timestamps: true }
 );
 
 const PropertyReview = mongoose.model<IPropertyReview>("PropertyReview", propertyReviewSchema);

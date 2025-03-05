@@ -1,6 +1,9 @@
 import User from "../models/user";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { IUser } from "../types";
 import dotenv from "dotenv";
+import { generateUserToken } from "../helpers/jwt";
 
 dotenv.config();
 
@@ -47,12 +50,24 @@ class UserService {
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) throw new Error("Invalid credentials");
 
-      return user;
+      // Generate JWT token
+      const token = generateUserToken(user);
+
+      return { success: true, token, user };
     } catch (error: any) {
       throw new Error(error.message);
     }
   }
 
+  // Facebook authentication (To be implemented)
+  static async facebookAuth(fbToken: string) {
+    try {
+      // Placeholder for actual Facebook OAuth authentication logic
+      return { success: false, message: "Facebook authentication not implemented yet" };
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
 }
 
 export default UserService;

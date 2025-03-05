@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import UserService from "../services/user.service";
-import { generateUserToken } from "../helpers/jwt";
 
 const UserController = {
   // User Signup
@@ -22,26 +21,12 @@ const UserController = {
     try {
       console.log("Login request received:", req.body);
       const { username, password } = req.body;
-      const user = await UserService.login(username, password);
-      // Generate JWT token
-      const token = generateUserToken(user);
-      console.log("generated tokeen ", token )
-      console.log("User logged in successfully:", user._id);
-      const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
-      res.cookie("test_cookie", "hello", { httpOnly: true });
-      return res.cookie("token", token, {
-        httpOnly: true, 
-        expires: expiresDate, 
-        secure: process.env.NODE_ENV === "production", 
-        priority: "high", 
-        sameSite: "lax"
-      }).status(200).json({
-        success: true, 
-        user: user
-      });
+      const result = await UserService.login(username, password);
+      console.log("User logged in successfully:", result);
+      res.status(200).json(result);
     } catch (error: any) {
       console.error("Login error:", error.message);
-      res.status(401).json({ message: error.message }); 
+      res.status(401).json({ success: false, message: error.message }); 
     }
   },
 
@@ -52,11 +37,24 @@ const UserController = {
       console.log("User authentication successfully:", authUser);
       res.status(200).json(authUser);
     } catch (error: any) {
-      console.error("user authentication error:", error);
+      console.error("user authentication error:", error.message);
       res.status(401).json({ success: false, message: error.message });
     }
   },
 
+  // Facebook Authentication (Placeholder)
+  async facebookAuth(req: Request, res: Response) {
+    try {
+      console.log("Facebook auth request received:", req.body);
+      const { fbToken } = req.body;
+      const result = await UserService.facebookAuth(fbToken);
+      console.log("Facebook auth result:", result);
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("Facebook auth error:", error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
 };
 
 export default UserController;

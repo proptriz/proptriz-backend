@@ -8,7 +8,6 @@ export interface IUser extends Document {
     image?: string; // URL to user profile pics (optional)
     email?: string; // for notification    
     phone?: string; // URLs of reviewer upload (optional)
-    created_at: Date; // (auto)
 };
 
 export interface IProperty extends Document {
@@ -34,8 +33,6 @@ export interface IProperty extends Document {
     }];
     env_falities?: string[];
     status: string; // (available, sold, unavailable, rented)
-    created_at: Date;
-    updated_at: Date;
   };
 
   export interface IAgent extends Document { 
@@ -43,8 +40,6 @@ export interface IProperty extends Document {
     brand_name: string; // User Legal Name (e.g. Tony Adeola Ezenwa)
     image: string; // URL to user profile pics (optional)
     fulfillment_terms: string;
-    beacame_agent_date: Date; // (auto)
-    modified_at: Date;
     address: string;
     map_location?: {
       type: 'Point';

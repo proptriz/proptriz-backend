@@ -106,18 +106,7 @@ const propertySchema = new Schema<IProperty>(
       required: true,
       default: PropertyStatus.available
     },
-    created_at: {
-      type: Date,
-      immutable: true,
-      required: true,
-      default: () => Date.now(),
-    },
-    updated_at: {
-      type: Date,
-      required: true,
-      default: () => Date.now(),
-    }
-  }
+  }, { timestamps: true }
 );
 
 // Pre-save hook to auto-populate the slug field

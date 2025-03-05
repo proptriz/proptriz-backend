@@ -31,13 +31,7 @@ const agentReviewSchema = new Schema<IAgentReview>(
       required: false,
       default: ""
     },
-    review_date: {
-      type: Date,
-      immutable: true,
-      required: true,
-      default: () => Date.now(),
-    }
-  }
+  }, { timestamps: true }
 );
 
 const AgentReview = mongoose.model<IAgentReview>("AgentReview", agentReviewSchema);
