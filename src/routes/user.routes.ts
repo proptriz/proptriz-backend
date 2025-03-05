@@ -7,6 +7,6 @@ const userRoutes = Router();
 userRoutes.post("/signup", UserController.signUp);
 userRoutes.post("/login", UserController.login);
 userRoutes.post("/authenticate", verifyToken, UserController.authenticate);
-userRoutes.post("/auth/facebook", UserController.facebookAuth); // Placeholder
+userRoutes.put("/change-password", verifyToken, UserController.changePassword);
 
 export default userRoutes;

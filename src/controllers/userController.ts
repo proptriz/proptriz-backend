@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import UserService from "../services/user.service";
+import { IUser } from "../types";
 
 const UserController = {
   // User Signup
@@ -42,19 +43,19 @@ const UserController = {
     }
   },
 
-  // Facebook Authentication (Placeholder)
-  async facebookAuth(req: Request, res: Response) {
+  async changePassword(req: Request, res: Response) {
     try {
-      console.log("Facebook auth request received:", req.body);
-      const { fbToken } = req.body;
-      const result = await UserService.facebookAuth(fbToken);
-      console.log("Facebook auth result:", result);
+      const authUser = req.currentUser as IUser;
+      const newPassword = req.body.newPassword;
+      console.log("User authentication successfully:", authUser);
+      const result = await UserService.changePassword(authUser, newPassword)
       res.status(200).json(result);
     } catch (error: any) {
-      console.error("Facebook auth error:", error.message);
-      res.status(400).json({ success: false, message: error.message });
+      console.error("user authentication error:", error.message);
+      res.status(401).json({ success: false, message: error.message });
     }
   },
+
 };
 
 export default UserController;

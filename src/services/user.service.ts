@@ -59,15 +59,43 @@ class UserService {
     }
   }
 
-  // Facebook authentication (To be implemented)
-  static async facebookAuth(fbToken: string) {
+  static async updateProfile(userData: IUser) {
     try {
-      // Placeholder for actual Facebook OAuth authentication logic
-      return { success: false, message: "Facebook authentication not implemented yet" };
+      const username = userData.username || userData.email;
+
+      // Check if user does not exist
+      const existingUser = await User.findOne({ $or: [{ username }, { email: username?.toLowerCase() }] });
+      if (!existingUser) throw new Error("User does not exist");
+
+      // update user profile
+      const updatedUser = await User.findByIdAndUpdate(existingUser._id, {
+        phone: userData.phone,
+        fillname: userData.fullname,
+        image: userData.image
+      }, { new:true }).exec();
+
+      return { success: true, message: "Updated Profile successfully", user: updatedUser };
     } catch (error: any) {
       throw new Error(error.message);
     }
   }
+
+  static async changePassword(authUser: IUser, newPassword: string) {
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Create user
+      const user = await User.findByIdAndUpdate(authUser._id, {
+        password: hashedPassword,
+      });
+
+      return { success: true, message: "User password updated successfully", user: user };
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
+
 }
 
 export default UserService;
