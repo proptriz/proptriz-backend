@@ -59,21 +59,16 @@ class UserService {
     }
   }
 
-  static async updateProfile(userData: IUser) {
+  static async updateProfile(user:IUser, userData: IUser) {
     try {
-      const username = userData.username || userData.email;
-
-      // Check if user does not exist
-      const existingUser = await User.findOne({ $or: [{ username }, { email: username?.toLowerCase() }] });
-      if (!existingUser) throw new Error("User does not exist");
-
       // update user profile
-      const updatedUser = await User.findByIdAndUpdate(existingUser._id, {
+      const updatedUser = await User.findByIdAndUpdate(user._id, {
         phone: userData.phone,
         fillname: userData.fullname,
         image: userData.image
       }, { new:true }).exec();
-
+      
+      if (!updatedUser) throw new Error("User does not exist");
       return { success: true, message: "Updated Profile successfully", user: updatedUser };
     } catch (error: any) {
       throw new Error(error.message);

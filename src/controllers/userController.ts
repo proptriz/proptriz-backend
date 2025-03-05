@@ -26,7 +26,7 @@ const UserController = {
       const token = result.token;
       const user = result.user;
       const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
-      
+
       console.log("User logged in successfully:", result);
       return res.cookie("token", token, {
         httpOnly: true, 
@@ -47,6 +47,19 @@ const UserController = {
       const authUser = req.currentUser;
       console.log("User authentication successfully:", authUser);
       res.status(200).json(authUser);
+    } catch (error: any) {
+      console.error("user authentication error:", error.message);
+      res.status(401).json({ success: false, message: error.message });
+    }
+  },
+
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const authUser = req.currentUser as IUser;
+      const userData = req.body;
+      console.log("User authentication successfully:", authUser);
+      const result = await UserService.updateProfile(authUser, userData)
+      res.status(200).json(result);
     } catch (error: any) {
       console.error("user authentication error:", error.message);
       res.status(401).json({ success: false, message: error.message });
