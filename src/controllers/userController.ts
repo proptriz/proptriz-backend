@@ -23,8 +23,18 @@ const UserController = {
       console.log("Login request received:", req.body);
       const { username, password } = req.body;
       const result = await UserService.login(username, password);
+      const token = result.token;
+      const user = result.user;
+      const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
+      
       console.log("User logged in successfully:", result);
-      res.status(200).json(result);
+      return res.cookie("token", token, {
+        httpOnly: true, 
+        expires: expiresDate, 
+        secure: process.env.Nod_ENV === 'production', 
+        priority: "high", 
+        sameSite: "lax"
+      }).status(200).json({ user, token, success: true });      
     } catch (error: any) {
       console.error("Login error:", error.message);
       res.status(401).json({ success: false, message: error.message }); 
