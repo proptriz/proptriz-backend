@@ -45,11 +45,11 @@ export const registerAgent = async (req:Request, res:Response) => {
 
 export const updateProfile = async (req:Request, res:Response) => {
     try {
-      const currentUser = req.currentUser as IUser;
+      const currentUser = req.authAgent as IAgent;
       const agentData = req.body;
-    //   const result = await AgentService.updateProfile(currentUser, agentData)
-    //   console.info(result)
-    //   return res.status(200).json(result)
+      const result = await AgentService.updateAgent(currentUser, agentData)
+      console.info(result)
+      return res.status(200).json(result)
     } catch (error:any){
       console.error("Agent update error: ", error.message)
       return res.status(400).json({message: "Agent update error"})

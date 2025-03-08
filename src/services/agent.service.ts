@@ -26,7 +26,7 @@ class AgentService {
     }
   }
 
-  // Get a list of properties based on a filter
+  // Get a list of agents based on a filter
   async getAgents(filter: FilterQuery<IAgent> = {}): Promise<IAgent[]> {
     try {
       return await Agent.find(filter).populate("user").exec();
