@@ -7,6 +7,7 @@ import appRouter from "../routes";
 import userRoutes from "../routes/user.routes";
 import propertyRoutes from "../routes/property.routes";
 import reviewRoutes from "../routes/review.routes";
+import agentRoutes from "../routes/agent.routes";
 
 dotenv.config();
 
@@ -25,5 +26,6 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 app.use("/", homeRoutes);
+app.use("/api/v1'agent", agentRoutes)
 
 export default app
