@@ -31,6 +31,11 @@ const propertyReviewSchema = new Schema<IPropertyReview>(
       required: false,
       default: ""
     },
+    reply_review_id: {
+      type: SchemaTypes.ObjectId,
+      required: false,
+      default: ""
+    }
   }, { timestamps: true }
 );
 

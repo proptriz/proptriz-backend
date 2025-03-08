@@ -55,16 +55,16 @@ export interface IProperty extends Document {
     review_giver: Types.ObjectId; // Foreing key referencing userId
     property: Types.ObjectId; // Foreing key referencing property under review
     images?: string[]; // URLs of reviewer upload (optional)
-    review_date: Date; // (auto)
+    reply_review_id: Types.ObjectId; // Foreign id ref to review
   };
 
   export interface IAgentReview extends Document {
     rating: number; // Rating score (0.0 to 5.0)
     comment?: string; // user review text (optional)
     review_giver: Types.ObjectId; // Foreing key referencing userId
-    review_receiver: Types.ObjectId; // Foreing key referencing property under review
+    review_receiver: Types.ObjectId; // Foreign key referencing property under review
+    reply_review_id: Types.ObjectId; // Foreign id ref to review
     images?: string[]; // URLs of reviewer upload (optional)
-    review_date: Date; // (auto)
   };
 
   export interface ILandmark extends Document {
