@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import AgentService from "../services/agent.service";
-import { IAgent, IUser } from "../types";
+import { IUser } from "../types";
 import PropertyReviewService from "../services/propertyReview.service";
 
 
