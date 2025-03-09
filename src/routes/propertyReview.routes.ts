@@ -1,11 +1,12 @@
 import { Router } from "express";
-import * as reviewController from "../controllers/reviewController";
+import * as propertyReviewController from "../controllers/PropertyReviewController"
+import { isAgentFound } from "../middlewares/isAgentFound";
+import { verifyToken } from "../middlewares/verifyToken";
 
-const reviewRoutes = Router();
+const propertyReviewRoutes = Router();
 
-reviewRoutes.get("/:uid", reviewController.getUserReviews);
-reviewRoutes.get("/:review_id", reviewController.getSingleReview);
-reviewRoutes.post("/add", reviewController.addReview);
-reviewRoutes.delete("/delete/:review_id", reviewController.deleteUserReview);
+propertyReviewRoutes.post("/add", verifyToken, isAgentFound, propertyReviewController.addReview);
+propertyReviewRoutes.get("/:id", propertyReviewController.getSinglePropertyReview); 
+propertyReviewRoutes.get("/all", propertyReviewController.getPropertyAllReviews);
 
-export default reviewRoutes;
+export default propertyReviewRoutes;
