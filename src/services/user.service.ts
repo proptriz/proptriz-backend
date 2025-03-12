@@ -68,6 +68,40 @@ class UserService {
       throw new Error(error.message);
     }
   }
+
+  // Get User
+    static async getUser(id: string) {
+      try {
+        // Find user by username or email
+        const user = await User.findOne({ email: id });
+        return { success: true, data: user };
+      } catch (error: any) {
+        throw new Error(error.message);
+      }
+    }
+  static async authenticate(body: any) {
+    try {
+      const { email, name, image, provider } = body;
+      const user = await User.findOne({
+        email: email,
+      }).exec();
+      
+      if(user) {
+        return user;
+      } else {
+        const newUser = await User.create({
+          email: email,
+          fullname: name || "",
+          image: image || "", 
+          provider: provider || ""
+        })
+
+        return newUser;
+      }
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
 }
 
 export default UserService;
