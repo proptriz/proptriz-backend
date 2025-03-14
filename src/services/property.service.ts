@@ -25,12 +25,14 @@ class PropertyService {
   // Get a list of properties based on a filter
   async getProperties(skip:number, pageSize:number, filter: FilterQuery<IProperty> = {}): Promise<IProperty[]> {
     try {
-      return await Property.find(filter)
+      const properties = await Property.find(filter)
       .populate("agent")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
       .exec();
+      // console.log(properties)
+      return properties
     } catch (error: any) {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }

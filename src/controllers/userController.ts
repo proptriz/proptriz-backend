@@ -28,7 +28,7 @@ const UserController = {
       const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
 
       console.log("User logged in successfully:", result);
-      return res.cookie("token", token, {
+      return res.cookie("authToken", token, {
         httpOnly: true, 
         expires: expiresDate, 
         secure: process.env.Nod_ENV === 'production', 
@@ -55,10 +55,11 @@ const UserController = {
 
   async updateProfile(req: Request, res: Response) {
     try {
+      console.log("request received");
       const authUser = req.currentUser as IUser;
       const userData = req.body;
       console.log("User authentication successfully:", authUser);
-      const result = await UserService.updateProfile(authUser, userData)
+      const result = await UserService.updateProfile(authUser, userData);
       res.status(200).json(result);
     } catch (error: any) {
       console.error("user authentication error:", error.message);
