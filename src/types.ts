@@ -2,14 +2,16 @@ import { Document, Types } from "mongoose";
 
 
 export interface IUser extends Document {
-    username: string; // 
-    password: string; // Foreing key referencing property under review
-    fullname?: string; // User Legal Name (e.g. Tony Adeola Ezenwa)
+    username: string; // unique identifyer
+    password: string; // hashed user password
+    fullname?: string; // User Legal Name (e.g. Tony Adeola Ezenwa) (optional)
     image?: string; // URL to user profile pics (optional)
-    email?: string; // for notification    
-    phone?: string; // URLs of reviewer upload (optional)
+    email?: string; // for notification
+    phone?: string; // user phone number (optional)
     provider?: string; // URLs of reviewer upload (optional)
 };
+
+export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
 
 export interface IProperty extends Document {
     banner: string; // URL of the property image or image with index = 0

@@ -21,20 +21,20 @@ const UserController = {
   async login(req: Request, res: Response) {
     try {
       console.log("Login request received:", req.body);
-      const { username, password } = req.body;
-      const result = await UserService.login(username, password);
+      const { username, password, provider } = req.body;
+      const result = await UserService.login(username, password, provider);
       const token = result.token;
       const user = result.user;
       const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
 
       console.log("User logged in successfully:", result);
-      return res.cookie("authToken", token, {
+      return res.cookie("token", token, {
         httpOnly: true, 
         expires: expiresDate, 
-        secure: process.env.Nod_ENV === 'production', 
+        secure: process.env.NOD_env==='production', 
         priority: "high", 
         sameSite: "lax"
-      }).status(200).json({ user, token, success: true });      
+      }).status(200).json(result);      
     } catch (error: any) {
       console.error("Login error:", error.message);
       res.status(401).json({ success: false, message: error.message }); 
@@ -80,34 +80,40 @@ const UserController = {
     }
   },
 
-  async authenticateUser(req: Request, res: Response) {
+  // async authenticateUser(req: Request, res: Response) {
+  //   try {
+  //     const body = req.body;
+  //     const result = await UserService.authenticate(body);
+  //     console.log("User logged in successfully:", result);
+  //     res.status(200).json({success: true, data: result});
+  //   } catch (error: any) {
+  //     console.error("Login error:", error.message);
+  //     return { success: false, message: error.message };
+  //   }
+  // },
+
+  async getOathUser(req: Request, res: Response) {
     try {
-      const body = req.body;
-      const result = await UserService.authenticate(body);
+      const { email } = req.params;
+      const result = await UserService.getOauthUser(email);
       console.log("User logged in successfully:", result);
-      res.status(200).json({success: true, data: result});
+      const token = result.token;
+      const user = result.user;
+      const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
+
+      console.log("User logged in successfully:", result);
+      return res.cookie("token", token, {
+        httpOnly: true, 
+        expires: expiresDate, 
+        secure: process.env.NOD_env==='production', 
+        priority: "high", 
+        sameSite: "lax"
+      }).status(200).json(result);      
     } catch (error: any) {
       console.error("Login error:", error.message);
-      return { success: false, message: error.message };
+      return res.status(401).json({ success: false, message: "user authentication failed" });
     }
   },
-
-
-  async getUser(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const result = await UserService.getUser(id);
-      console.log("User logged in successfully:", result);
-      res.status(200).json({success: true, data: result});
-    } catch (error: any) {
-      console.error("Login error:", error.message);
-      return { success: false, message: error.message };
-    }
-  },
-
-
-
-
 };
 
 export default UserController;

@@ -29,44 +29,61 @@ class UserService {
         fullname,
         phone,
         image,
+        provider: 'credentials'
       });
 
       await user.save();
 
-      return { success: true, message: "User registered successfully", user: user };
+      const newUser = {
+        username: user.username,
+        fullname: user.fullname,
+        image: user.email,
+        phone: user.phone
+      }
+
+      return { success: true, message: "User registered successfully", user: newUser };
     } catch (error: any) {
       throw new Error(error.message);
     }
   }
 
   // User login
-  static async login(username: string, password: string) {
+  static async login(username: string, password: string, provider='credentials') {
     try {
       // Find user by username or email
       const user = await User.findOne({ $or: [{ username }, { email: username.toLowerCase() }] });
       if (!user) throw new Error("Invalid credentials");
 
       // Verify password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error("Invalid credentials");
+      if (provider==='credentials') {
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) throw new Error("Invalid credentials");
+      }
 
       // Generate JWT token
       const token = generateUserToken(user);
+      const authUser = {
+        _id: user._id,
+        username: user.username,
+        fullname: user.fullname,
+        image: user.email,
+        phone: user.phone
+      }
 
-      return { success: true, token, user };
+      return { success: true, token, user:authUser };
     } catch (error: any) {
       throw new Error(error.message);
     }
   }
 
-  static async updateProfile(user:IUser, userData: IUser) {
+  static async updateProfile(authUser:IUser, userData: IUser) {
     try {
       // update user profile
-      const updatedUser = await User.findByIdAndUpdate(user._id, {
+      const updatedUser = await User.findByIdAndUpdate(authUser._id, {
         phone: userData.phone,
         fillname: userData.fullname,
         image: userData.image
-      }, { new:true }).exec();
+      }, { new:true }).select('-password').exec();
       
       if (!updatedUser) throw new Error("User does not exist");
       return { success: true, message: "Updated Profile successfully", user: updatedUser };
@@ -83,48 +100,53 @@ class UserService {
       // Create user
       const user = await User.findByIdAndUpdate(authUser._id, {
         password: hashedPassword,
-      });
+      }).select('-password');
 
-      return { success: true, message: "User password updated successfully", user: user };
+      return { success: true, message: "Password reset successfully", user: user };
     } catch (error: any) {
       throw new Error(error.message);
     }
   }
-
 
   // Get User
-    static async getUser(id: string) {
-      try {
-        // Find user by username or email
-        const user = await User.findOne({ email: id });
-        return { success: true, data: user };
-      } catch (error: any) {
-        throw new Error(error.message);
-      }
-    }
-  static async authenticate(body: any) {
-    try {
-      const { email, name, image, provider } = body;
-      const user = await User.findOne({
-        email: email,
-      }).exec();
-      
-      if(user) {
-        return user;
-      } else {
-        const newUser = await User.create({
-          email: email,
-          fullname: name || "",
-          image: image || "", 
-          provider: provider || ""
-        })
+static async getOauthUser(email: string) {
+  try {
+    // Find user by email, excluding the password field
+    const user = await User.findOne({ $or: [{ username: email }, { email: email }] }).select('-password');
+    if (!user) throw new Error(`No user with ${email}`);
 
-        return newUser;
-      }
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    // Generate JWT token
+    const token = generateUserToken(user);
+    return { success: true, token, user };  
+  } catch (error: any) {
+    throw new Error(error.message);
   }
+}
+
+
+  // static async authenticate(body: any) {
+  //   try {
+  //     const { email, name, image, provider } = body;
+  //     const user = await User.findOne({
+  //       email: email,
+  //     }).exec();
+      
+  //     if(user) {
+  //       return user;
+  //     } else {
+  //       const newUser = await User.create({
+  //         email: email,
+  //         fullname: name || "",
+  //         image: image || "", 
+  //         provider: provider || ""
+  //       })
+
+  //       return newUser;
+  //     }
+  //   } catch (error: any) {
+  //     throw new Error(error.message);
+  //   }
+  // }
 }
 
 export default UserService;
