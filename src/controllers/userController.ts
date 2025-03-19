@@ -45,10 +45,10 @@ const UserController = {
   async authenticate(req: Request, res: Response) {
     try {
       const authUser = req.currentUser;
-      console.log("User authentication successfully:", authUser);
+      // console.log("User authentication successfully:", authUser);
       res.status(200).json(authUser);
     } catch (error: any) {
-      console.error("user authentication error:", error.message);
+      // console.error("user authentication error:", error.message);
       res.status(401).json({ success: false, message: error.message });
     }
   },
@@ -79,6 +79,34 @@ const UserController = {
       res.status(401).json({ success: false, message: error.message });
     }
   },
+
+  async authenticateUser(req: Request, res: Response) {
+    try {
+      const body = req.body;
+      const result = await UserService.authenticate(body);
+      console.log("User logged in successfully:", result);
+      res.status(200).json({success: true, data: result});
+    } catch (error: any) {
+      console.error("Login error:", error.message);
+      return { success: false, message: error.message };
+    }
+  },
+
+
+  async getUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await UserService.getUser(id);
+      console.log("User logged in successfully:", result);
+      res.status(200).json({success: true, data: result});
+    } catch (error: any) {
+      console.error("Login error:", error.message);
+      return { success: false, message: error.message };
+    }
+  },
+
+
+
 
 };
 

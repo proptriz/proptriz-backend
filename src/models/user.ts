@@ -6,12 +6,12 @@ const userSchema = new Schema<IUser>(
   {
     username: {
       type: String,
-      required: true,
-      unique: true,
+      // required: true,
+      // unique: true,
     },
     password: {
       type: String,
-      required: true,
+      // required: true,
     },
     fullname: {
       type: String,
@@ -27,6 +27,10 @@ const userSchema = new Schema<IUser>(
       maxlength: 15,
       required: false,
       null: true
+    },
+    provider: {
+      type: String,
+      required: false,
     },
     image: {
       type: String,

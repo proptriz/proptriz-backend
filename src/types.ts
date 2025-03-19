@@ -8,6 +8,7 @@ export interface IUser extends Document {
     image?: string; // URL to user profile pics (optional)
     email?: string; // for notification    
     phone?: string; // URLs of reviewer upload (optional)
+    provider?: string; // URLs of reviewer upload (optional)
 };
 
 export interface IProperty extends Document {
