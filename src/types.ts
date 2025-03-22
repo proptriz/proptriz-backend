@@ -6,7 +6,7 @@ export interface IUser extends Document {
     password: string; // Foreing key referencing property under review
     fullname?: string; // User Legal Name (e.g. Tony Adeola Ezenwa)
     image?: string; // URL to user profile pics (optional)
-    email?: string; // for notification    
+    email?: string; // for notification
     phone?: string; // URLs of reviewer upload (optional)
     provider?: string; // URLs of reviewer upload (optional)
     created_at: Date; // (auto)

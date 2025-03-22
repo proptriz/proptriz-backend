@@ -29,6 +29,7 @@ class UserService {
         fullname,
         phone,
         image,
+        provider: 'credentials'
       });
 
       await user.save();
@@ -47,8 +48,8 @@ class UserService {
       if (!user) throw new Error("Invalid credentials");
 
       // Verify password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error("Invalid credentials");
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) throw new Error("Invalid credentials");
 
       // Generate JWT token
       const token = generateUserToken(user);
@@ -71,16 +72,16 @@ class UserService {
 
   // Get User
     static async getUser(id: string) {
-      try {
+    try {
         // Find user by username or email
         const user = await User.findOne({ email: id });
         return { success: true, data: user };
-      } catch (error: any) {
-        throw new Error(error.message);
-      }
+    } catch (error: any) {
+      throw new Error(error.message);
     }
+  }
   static async authenticate(body: any) {
-    try {
+  try {
       const { email, name, image, provider } = body;
       const user = await User.findOne({
         email: email,
@@ -98,10 +99,10 @@ class UserService {
 
         return newUser;
       }
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  } catch (error: any) {
+    throw new Error(error.message);
   }
+}
 }
 
 export default UserService;
