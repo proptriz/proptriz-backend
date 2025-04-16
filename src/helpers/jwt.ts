@@ -41,3 +41,6 @@ export const decodeUserToken = async (token: string) => {
     throw new Error('Failed to decode user token; please try again');
   }
 };
+
+
+export const generateFourDigitCode = () => Math.floor(1000 + Math.random() * 9000);

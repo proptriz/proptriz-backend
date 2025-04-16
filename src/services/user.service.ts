@@ -3,7 +3,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { IUser } from "../types";
 import dotenv from "dotenv";
-import { generateUserToken } from "../helpers/jwt";
+import { generateFourDigitCode, generateUserToken } from "../helpers/jwt";
+import { UserOtpVerification } from "../models/otp";
+import { mailOptions } from "../config/mailOptions";
+import { Transporter } from "../config/emailTransporter";
 
 dotenv.config();
 
@@ -13,6 +16,7 @@ class UserService {
     try {
       // Check if username is an email
       const email = username.includes("@") ? username.toLowerCase() : undefined;
+
 
       // Check if user already exists
       const existingUser = await User.exists({ username });
@@ -36,10 +40,18 @@ class UserService {
 
       const newUser = {
         username: user.username,
+        email: user.email,
         fullname: user.fullname,
-        image: user.email,
-        phone: user.phone
+        image: user.image,
+        phone: user.phone,
       }
+
+      console.log(user)
+      
+      const userId = user._id && user._id.toString();
+      console.log(userId)
+      if(user) await handleOtpAuth(user.email)
+
 
       return { success: true, message: "User registered successfully", user: newUser };
     } catch (error: any) {
@@ -60,17 +72,68 @@ class UserService {
         if (!isMatch) throw new Error("Invalid credentials");
       }
 
+      return { success: true, user: user}
+
       // Generate JWT token
+      // const token = generateUserToken(user);
+      // const authUser = {
+      //   _id: user._id,
+      //   username: user.username,
+      //   fullname: user.fullname,
+      //   image: user.image,
+      //   email: user.email,
+      //   phone: user.phone
+      // }
+
+      // return { success: true, token, user:authUser };
+
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
+
+  static async authenticate(body: any) {
+    try {
+      const { email, name, image, provider } = body;
+      const user = await User.findOne({ $or: [{ username: email }, { email: email }] }).exec();
+      
+      if(user) {
+         // Generate JWT token
       const token = generateUserToken(user);
       const authUser = {
         _id: user._id,
         username: user.username,
         fullname: user.fullname,
-        image: user.email,
+        image: user.image,
+        email: user.email,
         phone: user.phone
       }
 
       return { success: true, token, user:authUser };
+        // return user;
+      } else {
+        const newUser = await User.create({
+          email: email,
+          fullname: name || "",
+          image: image || "", 
+          provider: provider || ""
+        })
+
+         // Generate JWT token
+      const token = generateUserToken(newUser);
+      const authUser = {
+        _id: newUser._id,
+        username: newUser.username,
+        fullname: newUser.fullname,
+        image: newUser.image,
+        email: newUser.email,
+        phone: newUser.phone
+      }
+
+      return { success: true, token, user:authUser };
+
+        // return newUser;
+      }
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -122,31 +185,38 @@ static async getOauthUser(email: string) {
     throw new Error(error.message);
   }
 }
+}
 
+export const handleOtpAuth = async (email: any) => {
 
-  // static async authenticate(body: any) {
-  //   try {
-  //     const { email, name, image, provider } = body;
-  //     const user = await User.findOne({
-  //       email: email,
-  //     }).exec();
-      
-  //     if(user) {
-  //       return user;
-  //     } else {
-  //       const newUser = await User.create({
-  //         email: email,
-  //         fullname: name || "",
-  //         image: image || "", 
-  //         provider: provider || ""
-  //       })
+  const code = generateFourDigitCode();
+  
+  try {
+    await Transporter.sendMail(mailOptions(email, code));
+    const hashedOtp = await bcrypt.hash(code.toString(), 10);
 
-  //       return newUser;
-  //     }
-  //   } catch (error: any) {
-  //     throw new Error(error.message);
-  //   }
-  // }
+    const verifyUserOtp = await UserOtpVerification.findOne({email: email});
+    if (verifyUserOtp) {
+      await UserOtpVerification.findOneAndUpdate(
+        {email: email},
+        { code: hashedOtp },
+        { new: true }
+      );
+    } else {
+      const userOtp = new UserOtpVerification({
+        email: email,
+        code: hashedOtp,
+      });
+
+      await userOtp.save();
+    }
+    // const userId = userId.toString();
+    // return NextResponse.json({ message: "Email sent successfully", data: {user_id: userId} }, {status: 200})
+  } catch (err: any) {
+    console.log(err.message);
+    throw new Error("An Error!!! occure sending email:" + err.message)
+    // return NextResponse.json({ message: err.message }, {status: 400});
+  }
 }
 
 export default UserService;
