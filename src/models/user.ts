@@ -19,6 +19,7 @@ const userSchema = new Schema<IUser>(
     },
     email: {
       type: String,
+      unique:true,
       required: false,
       lowercase: true
     },
@@ -28,18 +29,16 @@ const userSchema = new Schema<IUser>(
       required: false,
       null: true
     },
-    created_at: {
-      type: Date,
-      default: () => Date.now(),
-      immutable: true,
-      required: true
+    provider: {
+      type: String,
+      required: false,
     },
     image: {
       type: String,
       required: false,
       default: ""
     }
-  }
+  }, { timestamps: true }
 );
 
 const User = mongoose.model<IUser>("User", userSchema);

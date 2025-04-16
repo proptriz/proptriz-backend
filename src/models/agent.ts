@@ -43,23 +43,12 @@ const agentSchema = new Schema<IAgent>(
       required: true,
       default: AgentStatus.available
     },
-    beacame_agent_date: {
-      type: Date,
-      immutable: true,
-      required: true,
-      default: () => Date.now(),
-    },
-    modified_at: {
-      type: Date,
-      required: true,
-      default: () => Date.now(),
-    },
     social_handles: {
       type: Map,
       of: String,
       required:false
     }
-  }
+  }, { timestamps: true }
 );
 
 const Agent = mongoose.model<IAgent>("Agent", agentSchema);

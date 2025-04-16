@@ -6,7 +6,9 @@ import homeRoutes from "../routes/home.routes";
 import appRouter from "../routes";
 import userRoutes from "../routes/user.routes";
 import propertyRoutes from "../routes/property.routes";
-import reviewRoutes from "../routes/review.routes";
+import propertyReviewRoutes from "../routes/propertyReview.routes";
+import agentRoutes from "../routes/agent.routes";
+import agentReviewRoutes from "../routes/agentReview.routes";
 
 dotenv.config();
 
@@ -23,7 +25,9 @@ app.use(cookieParser());
 app.use("/api/v1", appRouter);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/property", propertyRoutes);
-app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/", homeRoutes);
+app.use("/api/v1/agent", agentRoutes)
+app.use("/api/v1/agent-review", agentReviewRoutes)
 
 export default app

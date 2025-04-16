@@ -19,6 +19,7 @@ export const verifyToken = async (
 
   // Fallback to the authorization header if token is not in the cookie
   const authHeader = req.headers.authorization;
+  console.log("CHECK AUTH TOKEN, ", tokenFromCookie);
   const tokenFromHeader = authHeader && authHeader.split(" ")[1];
 
   // Prioritize token from cookies, then from header

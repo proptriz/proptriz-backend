@@ -6,7 +6,12 @@ const userRoutes = Router();
 
 userRoutes.post("/signup", UserController.signUp);
 userRoutes.post("/login", UserController.login);
-userRoutes.post("/authenticate", verifyToken, UserController.authenticate);
-userRoutes.post("/auth/facebook", UserController.facebookAuth); // Placeholder
+userRoutes.post("/verify-otp", UserController.otpVerification);
+userRoutes.post("/resend-otp", UserController.resendOtp);
+userRoutes.post("/authenticate", UserController.authenticate);
+userRoutes.put("/update-profile", verifyToken, UserController.updateProfile);
+userRoutes.put("/change-password", verifyToken, UserController.changePassword);
+userRoutes.get("/get-user/:email", UserController.getOathUser);
+// userRoutes.post("/auth", UserController.authenticateUser);
 
 export default userRoutes;
