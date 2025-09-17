@@ -9,6 +9,8 @@ import propertyRoutes from "../routes/property.routes";
 import propertyReviewRoutes from "../routes/propertyReview.routes";
 import agentRoutes from "../routes/agent.routes";
 import agentReviewRoutes from "../routes/agentReview.routes";
+import paymentsRouter from "../routes/payment.routes";
+import requestLogger from "../middlewares/logger";
 
 dotenv.config();
 
@@ -21,9 +23,11 @@ app.use(cors({
     credentials: true
 }));
 app.use(cookieParser());
+app.use(requestLogger);
 
 app.use("/api/v1", appRouter);
 app.use("/api/v1/users", userRoutes);
+app.use('/api/v1/payments', paymentsRouter);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/", homeRoutes);

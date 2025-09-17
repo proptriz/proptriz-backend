@@ -1,4 +1,4 @@
-export enum ListingType {
+export enum ListForType {
    rent = "rent",
    buy = "sell"
 }

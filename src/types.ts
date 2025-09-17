@@ -3,12 +3,68 @@ import { Document, Types } from "mongoose";
 
 export interface IUser extends Document {
     username: string; // unique identifyer
-    password: string; // hashed user password
+    pi_uid: string; // hashed user password
     fullname?: string; // User Legal Name (e.g. Tony Adeola Ezenwa) (optional)
     image?: string; // URL to user profile pics (optional)
     email?: string; // for notification
     phone?: string; // user phone number (optional)
     provider?: string; // URLs of reviewer upload (optional)
+};
+
+export interface A2UMetadata { 
+  orderId: string; 
+  sellerId: string; 
+  buyerId: string 
+};
+
+export interface PaymentInfo {
+  identifier: string;
+  transaction?: {
+    txid: string;
+    _link: string;
+  };
+};
+
+export interface PaymentDTO {
+  amount: number;
+  user_uid: string;
+  created_at: string;
+  identifier: string;
+  memo: string;
+  metadata: object;
+  status: {
+    developer_approved: boolean;
+    transaction_verified: boolean;
+    developer_completed: boolean;
+    cancelled: boolean;
+    user_cancelled: boolean;
+  },
+  to_address: string;
+  transaction: null | {
+    txid: string;
+    verified: boolean;
+    _link: string;
+  },
+};
+
+export interface IA2UJob extends Document {
+  sellerPiUid: string;
+  amount: number;
+  xRef_ids: string[];
+  memo: string,
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  last_a2u_date: Date,
+  attempts: number;
+  last_error?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface A2UPaymentDataType {
+  sellerPiUid: string,
+  amount: string,
+  xRefIds: string[],
+  memo: string
 };
 
 export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
@@ -34,7 +90,7 @@ export interface IProperty extends Document {
         name: string;
         quantity: number;
     }];
-    env_falities?: string[];
+    env_facilities?: string[];
     status: string; // (available, sold, unavailable, rented)
   };
 

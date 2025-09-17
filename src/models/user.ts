@@ -9,13 +9,15 @@ const userSchema = new Schema<IUser>(
       required: true,
       unique: true,
     },
-    password: {
+    pi_uid: {
       type: String,
       required: true,
+      unique: true,
     },
     fullname: {
       type: String,
       null: true,
+      required: false,
     },
     email: {
       type: String,
@@ -28,10 +30,6 @@ const userSchema = new Schema<IUser>(
       maxlength: 15,
       required: false,
       null: true
-    },
-    provider: {
-      type: String,
-      required: false,
     },
     image: {
       type: String,

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import Property from "../models/property"; // Adjust this path based on your project structure
-import { ListingType } from "../models/enums/listingType";
+import { ListForType } from "../models/enums/listFor";
 import { Category } from "../models/enums/Category";
 import { PaymentPeriod } from "../models/enums/paymentPeriod";
 import { PropertyStatus } from "../models/enums/propertyStatus";
@@ -44,7 +44,7 @@ const generateMockProperties = async () => {
         slug: faker.helpers.slugify(faker.commerce.productName()),
         address: `${faker.address.streetAddress()}, ${randomCity.name}`,
         price: faker.number.int({ min: 50000, max: 10000000 }),
-        listed_for: faker.helpers.arrayElement(Object.values(ListingType)),
+        listed_for: faker.helpers.arrayElement(Object.values(ListForType)),
         category: faker.helpers.arrayElement(Object.values(Category)),
         period: faker.helpers.arrayElement(Object.values(PaymentPeriod)),
         negotiable: faker.datatype.boolean(),
