@@ -9,16 +9,19 @@ const userSchema = new Schema<IUser>(
       required: true,
       unique: true,
     },
-    password: {
+    pi_uid: {
       type: String,
       required: true,
+      unique: true,
     },
     fullname: {
       type: String,
       null: true,
+      required: false,
     },
     email: {
       type: String,
+      unique:true,
       required: false,
       lowercase: true
     },
@@ -28,18 +31,12 @@ const userSchema = new Schema<IUser>(
       required: false,
       null: true
     },
-    created_at: {
-      type: Date,
-      default: () => Date.now(),
-      immutable: true,
-      required: true
-    },
     image: {
       type: String,
       required: false,
       default: ""
     }
-  }
+  }, { timestamps: true }
 );
 
 const User = mongoose.model<IUser>("User", userSchema);

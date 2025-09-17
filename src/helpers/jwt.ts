@@ -9,7 +9,7 @@ import { env } from "../utils/env";
 export const generateUserToken = (user: IUser) => {
   try {
     console.info(`Generating token for user: ${user.username}`);
-    const token = jwt.sign({ username: user.username, _id: user._id, password: user.password }, env.JWT_SECRET, {
+    const token = jwt.sign({ username: user.username, _id: user._id, password: user.pi_uid }, env.JWT_SECRET, {
       expiresIn: "1d", // 1 day
     });
     console.info(`Successfully generated token for user: ${user.username}`);

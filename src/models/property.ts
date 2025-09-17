@@ -1,17 +1,16 @@
 import mongoose, { Schema, SchemaTypes } from "mongoose";
 import slugify from "slugify";
 import { IProperty } from "../types";
-import { ListingType } from "./enums/listingType";
+import { ListForType } from "./enums/listFor";
 import { Category } from "./enums/Category";
 import { PaymentPeriod } from "./enums/paymentPeriod";
-import User from "./user";
 import { PropertyStatus } from "./enums/propertyStatus";
 
 const propertySchema = new Schema<IProperty>(
   {
     banner: {
       type: String,
-      required: true,
+      required: false,
       default: ""
     },
     title: {
@@ -34,9 +33,9 @@ const propertySchema = new Schema<IProperty>(
     },
     listed_for: {
       type: String,
-      enum: ListingType,
+      enum: ListForType,
       required: true,
-      default: ListingType.rent
+      default: ListForType.rent
     },
     category: {
       type: String,
@@ -65,7 +64,7 @@ const propertySchema = new Schema<IProperty>(
     },
     agent: {
       type: SchemaTypes.ObjectId,
-      ref: User,
+      ref: "Agent",
       required: true
     },
     map_location: {
@@ -95,7 +94,7 @@ const propertySchema = new Schema<IProperty>(
       required: false,
       null: true
     },
-    env_falities: {
+    env_facilities: {
       type: [String],
       required: false,
       null: true
@@ -106,18 +105,7 @@ const propertySchema = new Schema<IProperty>(
       required: true,
       default: PropertyStatus.available
     },
-    created_at: {
-      type: Date,
-      immutable: true,
-      required: true,
-      default: () => Date.now(),
-    },
-    updated_at: {
-      type: Date,
-      required: true,
-      default: () => Date.now(),
-    }
-  }
+  }, { timestamps: true }
 );
 
 // Pre-save hook to auto-populate the slug field
