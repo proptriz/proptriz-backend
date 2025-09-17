@@ -30,17 +30,40 @@ const PropertyController = {
     }
   },
 
-  // Get all properties
+  // Get all properties with pagination & filters
   async getAllProperties(req: Request, res: Response) {
     try {
       console.log("Fetching all properties with filters:", req.query);
-      const filters = req.query;
-      const properties = await PropertyService.getProperties(filters);
-      console.log("Properties fetched successfully:", properties);
-      res.status(200).json( properties );
+
+      // Parse pagination values from query
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 10;
+      const skip = (page - 1) * limit;
+
+      // Parse filters safely
+      let filters = {};
+      if (req.query.filters) {
+        try {
+          filters = JSON.parse(req.query.filters as string);
+        } catch (error) {
+          return res.status(400).json({ success: false, message: "Invalid filters format" });
+        }
+      }
+
+      // Fetch properties with pagination & filters
+      const properties = await PropertyService.getProperties(skip, limit, filters);
+
+      console.log("Properties fetched successfully:", properties.length);
+      return res.status(200).json({
+        success: true,
+        data: properties,
+        currentPage: page,
+        totalPages: Math.ceil(properties.length / limit),
+      });
+
     } catch (error: any) {
       console.error("Error fetching all properties:", error.message);
-      res.status(500).json({ success: false, message: error.message });
+      return res.status(500).json({ success: false, message: error.message });
     }
   },
 

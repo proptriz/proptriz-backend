@@ -1,60 +1,68 @@
 import { Request, Response } from "express";
-import UserService from "../services/user.service";
+import * as UserService from "../services/user.service";
+import * as jwtHelper from "../helpers/jwt";
+import { IUser } from "../types";
+import logger from "../config/loggingConfig";
 
-const UserController = {
-  // User Signup
-  async signUp(req: Request, res: Response) {
-    try {
-      console.log("Signup request received:", req.body);
-      const { username, password, fullname, phone, image } = req.body;
-      const result = await UserService.signUp(username, password, fullname, phone, image);
-      console.log("User signed up successfully:", result);
-      res.status(201).json(result);
-    } catch (error: any) {
-      console.error("Signup error:", error.message);
-      res.status(400).json({ success: false, message: error.message });
-    }
-  },
 
-  // User Login
-  async login(req: Request, res: Response) {
-    try {
-      console.log("Login request received:", req.body);
-      const { username, password } = req.body;
-      const result = await UserService.login(username, password);
-      console.log("User logged in successfully:", result);
-      res.status(200).json(result);
-    } catch (error: any) {
-      console.error("Login error:", error.message);
-      res.status(401).json({ success: false, message: error.message }); 
-    }
-  },
+export const authenticateUser = async (req: Request, res: Response) => {
+  const auth = req.body;
 
-  // verify is user is login
-  async authenticate(req: Request, res: Response) {
-    try {
-      const authUser = req.currentUser;
-      console.log("User authentication successfully:", authUser);
-      res.status(200).json(authUser);
-    } catch (error: any) {
-      console.error("user authentication error:", error.message);
-      res.status(401).json({ success: false, message: error.message });
-    }
-  },
+  try {
+    const user = await UserService.authenticate(auth.user);
+    const token = jwtHelper.generateUserToken(user);
+    const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
 
-  // Facebook Authentication (Placeholder)
-  async facebookAuth(req: Request, res: Response) {
-    try {
-      console.log("Facebook auth request received:", req.body);
-      const { fbToken } = req.body;
-      const result = await UserService.facebookAuth(fbToken);
-      console.log("Facebook auth result:", result);
-      res.status(200).json(result);
-    } catch (error: any) {
-      console.error("Facebook auth error:", error.message);
-      res.status(400).json({ success: false, message: error.message });
-    }
-  },
+    logger.info(`User authenticated: ${user.pi_uid}`);
+
+    return res.cookie("token", token, {httpOnly: true, expires: expiresDate, secure: true, priority: "high", sameSite: "lax"}).status(200).json({
+      user: user,
+      token,
+    });
+  } catch (error) {
+    logger.error('Failed to authenticate user:', error);
+    return res.status(500).json({ message: 'An error occurred while authenticating user; please try again later' });
+  }
 };
 
-export default UserController;
+export const autoLoginUser = async(req: Request, res: Response) => {
+  try {
+    const currentUser = req.currentUser as IUser;
+    logger.info(`Auto-login successful for user: ${currentUser?.pi_uid || "NULL"}`);
+    return res.status(200).json({
+      user: currentUser,
+    });
+  } catch (error) {
+    logger.error(`Failed to auto-login user for userID ${ req.currentUser?.pi_uid }:`, error);
+    return res.status(500).json({ message: 'An error occurred while auto-logging the user; please try again later' });
+  }
+};
+
+export const getUser = async(req: Request, res: Response) => {
+  const { pi_uid } = req.params;
+  try {
+    const currentUser: IUser | null = await UserService.getUser(pi_uid);
+    if (!currentUser) {
+      logger.warn(`User not found with PI_UID: ${pi_uid}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+    logger.info(`Fetched user with PI_UID: ${pi_uid}`);
+    return res.status(200).json(currentUser);
+  } catch (error) {
+    logger.error(`Failed to fetch user for userID ${ pi_uid }:`, error);
+    return res.status(500).json({ message: 'An error occurred while getting user; please try again later' });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  const currentUser = req.currentUser;
+  try {
+    const deletedData = await UserService.deleteUser(currentUser?.pi_uid);
+    logger.info(`Deleted user with PI_UID: ${currentUser?.pi_uid}`);
+    return res.status(200).json({ message: "User deleted successfully", deletedData });
+  } catch (error) {
+    logger.error(`Failed to delete user for userID ${ currentUser?.pi_uid }:`, error);
+    return res.status(500).json({ message: 'An error occurred while deleting user; please try again later' });
+  }
+};
+

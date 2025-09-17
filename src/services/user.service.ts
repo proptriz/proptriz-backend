@@ -1,73 +1,61 @@
 import User from "../models/user";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import logger from "../config/loggingConfig";
 import { IUser } from "../types";
 import dotenv from "dotenv";
 import { generateUserToken } from "../helpers/jwt";
 
 dotenv.config();
 
-class UserService {
-  // Sign up a new user
-  static async signUp(username: string, password: string, fullname?: string, phone?: number, image?: string) {
-    try {
-      // Check if username is an email
-      const email = username.includes("@") ? username.toLowerCase() : undefined;
+const findOrCreateUser = async (currentUser: IUser): Promise<IUser> => {
+  logger.info(`Finding or creating user: ${currentUser.pi_uid} - ${currentUser.username}`);
+  const existingUser = await User.findOne({
+    pi_uid: currentUser.pi_uid,
+    username: currentUser.username
+  }).setOptions({ 
+    readPreference: 'primary' 
+  }).exec();
 
-      // Check if user already exists
-      const existingUser = await User.exists({ username });
-      if (existingUser) throw new Error("Username or email already exists");
+  if (existingUser) return existingUser;
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+  return User.create({
+    pi_uid: currentUser.pi_uid,
+    username: currentUser.username
+  });
+};
 
-      // Create user
-      const user = new User({
-        username,
-        email,
-        password: hashedPassword,
-        fullname,
-        phone,
-        image,
-      });
-
-      await user.save();
-
-      return { success: true, message: "User registered successfully", user: user };
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+export const authenticate = async (
+  currentUser: IUser
+): Promise<IUser> => {
+  try {
+    const user = await findOrCreateUser(currentUser);
+    return user
+  } catch (error) {
+    logger.error(`Failed to authenticate user: ${ error }`);
+    throw error;
   }
+};
 
-  // User login
-  static async login(username: string, password: string) {
-    try {
-      // Find user by username or email
-      const user = await User.findOne({ $or: [{ username }, { email: username.toLowerCase() }] });
-      if (!user) throw new Error("Invalid credentials");
-
-      // Verify password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error("Invalid credentials");
-
-      // Generate JWT token
-      const token = generateUserToken(user);
-
-      return { success: true, token, user };
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+export const getUser = async (pi_uid: string): Promise<IUser | null> => {
+  try {
+    const user = await User.findOne({ pi_uid }).exec();
+    return user ? user as IUser : null;
+  } catch (error) {
+    logger.error(`Failed to retrieve user for piUID ${ pi_uid }: ${ error }`);
+    throw error;
   }
+};
 
-  // Facebook authentication (To be implemented)
-  static async facebookAuth(fbToken: string) {
-    try {
-      // Placeholder for actual Facebook OAuth authentication logic
-      return { success: false, message: "Facebook authentication not implemented yet" };
-    } catch (error: any) {
-      throw new Error(error.message);
+export const deleteUser = async (pi_uid: string | undefined): Promise<{ user: IUser | null }> => {
+  try {
+    // delete the user
+    const deletedUser = await User.findOneAndDelete({ pi_uid }).exec();
+    return {
+      user: deletedUser ? deletedUser as IUser : null
     }
+  } catch (error) {
+    logger.error(`Failed to delete user or user association for piUID ${ pi_uid }: ${ error }`);
+    throw error;
   }
-}
-
-export default UserService;
+};
