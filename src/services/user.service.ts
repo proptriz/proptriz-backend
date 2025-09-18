@@ -1,10 +1,7 @@
 import User from "../models/user";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
 import dotenv from "dotenv";
-import { generateUserToken } from "../helpers/jwt";
 
 dotenv.config();
 
