@@ -1,4 +1,4 @@
-name: Proptriz Merge
+name: Quick Fix Merge
 
 # Controls when the workflow will execute
 on:
@@ -15,19 +15,19 @@ jobs:
   merge:
     name: 🔀 Merge
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'quick-fix' }}
 
     # The sequence of tasks that will be executed as part of the job
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Merge dev to main
+      - name: Merge quick-fix to main
         uses: repo-sync/pull-request@v2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          source_branch: "dev"
-          destination_branch: "main"
-          pr_title: "Automated PR to merge dev to main"
-          pr_body: ":robot: Automated PR from **dev** to **main**; see commits."
+          source_branch: "quick-fix"
+          destination_branch: "dev"
+          pr_title: "Automated PR to merge quick-fix to dev"
+          pr_body: ":robot: Automated PR from **quick-fix** to **dev**; see commits."
           pr_label: "auto-pr"
