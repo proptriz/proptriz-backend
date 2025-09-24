@@ -81,7 +81,7 @@ export interface IProperty extends Document {
     negotiable: boolean; // (true/false)
     property_terms?: string // agent terms and condit
     images: string[]; //Other property images for gallery
-    user_id: Types.ObjectId; //foreign key representing agent that list the property
+    user: Types.ObjectId; //foreign key representing agent that list the property
     map_location?: {
       type: 'Point';
       coordinates: [number, number];

@@ -56,7 +56,7 @@ const PropertyController = {
       console.log("Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
-        data: properties,
+        properties: properties,
         currentPage: page,
         totalPages: Math.ceil(properties.length / limit),
       });

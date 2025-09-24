@@ -62,7 +62,7 @@ const propertySchema = new Schema<IProperty>(
       default: [""],
       required: false
     },
-    user_id: {
+    user: {
       type: SchemaTypes.ObjectId,
       ref: "Agent",
       required: true

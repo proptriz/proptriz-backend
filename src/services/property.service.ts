@@ -1,3 +1,4 @@
+import logger from "../config/loggingConfig";
 import Property from "../models/property";
 import { IProperty } from "../types";
 import { FilterQuery, UpdateQuery } from "mongoose";
@@ -26,12 +27,12 @@ class PropertyService {
   async getProperties(skip:number, pageSize:number, filter: FilterQuery<IProperty> = {}): Promise<IProperty[]> {
     try {
       const properties = await Property.find(filter)
-      .populate("agent")
+      .populate("user_id")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
       .exec();
-      // console.log(properties)
+      logger.info(properties.length)
       return properties
     } catch (error: any) {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
