@@ -1,6 +1,8 @@
 import { Document, Types } from "mongoose";
 
-
+export interface BaseDocument extends Document {
+  _id: Types.ObjectId;
+}
 export interface IUser extends Document {
     username: string; // unique identifyer
     pi_uid: string; // hashed user password
@@ -69,7 +71,7 @@ export interface A2UPaymentDataType {
 
 export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
 
-export interface IProperty extends Document {
+export interface IProperty extends BaseDocument {
     banner: string; // URL of the property image or image with index = 0
     title: string; // Title of the property (e.g. 3 bedroom flat, self contain, )
     slug: string;

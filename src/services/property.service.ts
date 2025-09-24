@@ -27,7 +27,7 @@ class PropertyService {
   async getProperties(skip:number, pageSize:number, filter: FilterQuery<IProperty> = {}): Promise<IProperty[]> {
     try {
       const properties = await Property.find(filter)
-      .populate("user_id")
+      .populate("user")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
