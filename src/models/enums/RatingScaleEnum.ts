@@ -1,4 +1,4 @@
-export enum RatingScale {
+export enum RatingScaleEnum {
   DESPAIR = 0,
   SAD = 2,
   OKAY = 3,

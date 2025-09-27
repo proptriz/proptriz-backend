@@ -1,9 +1,9 @@
 import mongoose, { Schema, SchemaTypes, Document, Model } from "mongoose";
 import { IProperty } from "../types";
-import { ListForType } from "./enums/listFor";
-import { Category } from "./enums/Category";
-import { PaymentPeriod } from "./enums/paymentPeriod";
-import { PropertyStatus } from "./enums/propertyStatus";
+import { ListForEnum } from "./enums/ListForEnum";
+import { CategoryEnum } from "./enums/CategoryEnum";
+import { RenewalEnum } from "./enums/RenewalEnum";
+import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
 import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
 
 const propertySchema = new Schema<IProperty>(
@@ -20,20 +20,20 @@ const propertySchema = new Schema<IProperty>(
     price: { type: Number, required: true },
     listed_for: {
       type: String,
-      enum: ListForType,
+      enum: ListForEnum,
       required: true,
-      default: ListForType.rent,
+      default: ListForEnum.rent,
     },
     category: {
       type: String,
-      enum: Category,
+      enum: CategoryEnum,
       required: true,
-      default: Category.house,
+      default: CategoryEnum.house,
     },
     period: {
       type: String,
-      enum: PaymentPeriod,
-      default: PaymentPeriod.yearly,
+      enum: RenewalEnum,
+      default: RenewalEnum.yearly,
     },
     negotiable: { type: Boolean, default: true, required: true },
     property_terms: { type: String },
@@ -56,9 +56,9 @@ const propertySchema = new Schema<IProperty>(
     env_facilities: { type: [String] },
     status: {
       type: String,
-      enum: PropertyStatus,
+      enum: PropertyStatusEnum,
       required: true,
-      default: PropertyStatus.available,
+      default: PropertyStatusEnum.available,
     },
   },
   { timestamps: true }

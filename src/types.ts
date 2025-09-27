@@ -1,4 +1,5 @@
 import { Document, Types } from "mongoose";
+import { CategoryEnum } from "./models/enums/CategoryEnum";
 
 export interface BaseDocument extends Document {
   _id: Types.ObjectId;
@@ -78,7 +79,7 @@ export interface IProperty extends BaseDocument {
     address: string; // Location of the property
     price: number; // Price per month
     listed_for: string; // (e.g. "sell"/ "rent")
-    category: string; // The class of property (e.g. house, land, shop, office, hotel )
+    category: CategoryEnum; // The class of property (e.g. house, land, shop, office, hotel )
     period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)
     negotiable: boolean; // (true/false)
     property_terms?: string // agent terms and condit

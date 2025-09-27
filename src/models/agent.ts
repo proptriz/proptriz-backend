@@ -1,7 +1,7 @@
 import mongoose, { Schema, SchemaTypes } from "mongoose";
 import { IAgent } from "../types";
 import User from "./user";
-import { AgentStatus } from "./enums/agentStatus";
+import { AgentStatusEnum } from "./enums/AgentStatusEnum";
 
 const agentSchema = new Schema<IAgent>(
   {
@@ -39,9 +39,9 @@ const agentSchema = new Schema<IAgent>(
     },
     status: {
       type: String,
-      enum: AgentStatus,
+      enum: AgentStatusEnum,
       required: true,
-      default: AgentStatus.available
+      default: AgentStatusEnum.available
     },
     social_handles: {
       type: Map,

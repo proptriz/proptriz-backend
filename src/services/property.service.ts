@@ -1,7 +1,7 @@
 import logger from "../config/loggingConfig";
 import Property from "../models/property";
 import { IProperty } from "../types";
-import { FilterQuery, UpdateQuery } from "mongoose";
+import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
 
 class PropertyService {
   // Create a new property
@@ -24,16 +24,54 @@ class PropertyService {
   }
 
   // Get a list of properties based on a filter
-  async getProperties(skip:number, pageSize:number, filter: FilterQuery<IProperty> = {}): Promise<IProperty[]> {
+  async getProperties(
+    skip: number,
+    pageSize: number,
+    filter: FilterQuery<IProperty> = {}
+  ): Promise<any[]> {
     try {
-      const properties = await Property.find(filter)
-      .populate("user")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(pageSize)
-      .exec();
-      logger.info(properties.length)
-      return properties
+      const pipeline: PipelineStage[] = [
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: pageSize },
+        {
+          $lookup: {
+            from: "users", // must match your "Agent" collection name in Mongo
+            localField: "user",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+        {
+          $project: {
+            id: "$_id", // rename
+            _id: 0,     // hide default _id
+            title: 1,
+            price: 1,
+            address: 1,
+            banner: 1,
+            listed_for: 1,
+            period: 1,
+            // user: 1,
+
+            // ✅ Extract GeoJSON [lng, lat] into fields
+            longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
+            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
+
+            // ✅ only pick the needed user fields
+            // "user.id": "$user._id",
+            // "user._id": 0, // optional, hide raw Mongo _id
+            
+            "user.username": 1,
+          },
+        },
+      ];
+
+      const properties = await Property.aggregate(pipeline).exec();
+      logger.info("fetched properties", properties.length);
+      return properties;
     } catch (error: any) {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
