@@ -1,118 +1,76 @@
-import mongoose, { Schema, SchemaTypes } from "mongoose";
-import slugify from "slugify";
+import mongoose, { Schema, SchemaTypes, Document, Model } from "mongoose";
 import { IProperty } from "../types";
-import { ListForType } from "./enums/listFor";
-import { Category } from "./enums/Category";
-import { PaymentPeriod } from "./enums/paymentPeriod";
-import { PropertyStatus } from "./enums/propertyStatus";
+import { ListForEnum } from "./enums/ListForEnum";
+import { CategoryEnum } from "./enums/CategoryEnum";
+import { RenewalEnum } from "./enums/RenewalEnum";
+import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
+import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
 
 const propertySchema = new Schema<IProperty>(
   {
-    banner: {
-      type: String,
-      required: false,
-      default: ""
-    },
-    title: {
-      type: String,
-      required: true,
-    },
+    banner: { type: String, default: "" },
+    title: { type: String, required: true },
     slug: {
       type: String,
-      required: true,
       lowercase: true,
+      unique: true, // ensure DB-level uniqueness
+      index: true,
     },
-    address: {
-      type: String,
-      required: true,
-      default: ""
-    },
-    price: {
-      type: Number,
-      required: true,
-    },
+    address: { type: String, required: true, default: "" },
+    price: { type: Number, required: true },
     listed_for: {
       type: String,
-      enum: ListForType,
+      enum: ListForEnum,
       required: true,
-      default: ListForType.rent
+      default: ListForEnum.rent,
     },
     category: {
       type: String,
-      enum: Category,
+      enum: CategoryEnum,
       required: true,
-      default: Category.house
+      default: CategoryEnum.house,
     },
     period: {
       type: String,
-      enum: PaymentPeriod,
-      default: PaymentPeriod.yearly
+      enum: RenewalEnum,
+      default: RenewalEnum.yearly,
     },
-    negotiable: {
-      type: Boolean,
-      default: true,
-      required: true
-    },
-    property_terms: {
-      type:String,
-      required: false
-    },
-    images: {
-      type: [String],
-      default: [""],
-      required: false
-    },
-    user_id: {
-      type: SchemaTypes.ObjectId,
-      ref: "Agent",
-      required: true
-    },
+    negotiable: { type: Boolean, default: true, required: true },
+    property_terms: { type: String },
+    images: { type: [String], default: [] },
+    user: { type: SchemaTypes.ObjectId, ref: "User", required: true },
     map_location: {
       type: {
         type: String,
-        enum: ['Point'],
-        required: false,
-        default: 'Point',
+        enum: ["Point"],
+        default: "Point",
       },
-      coordinates: {
-        type: [Number],
-        required: true,
-        default: [0, 0]
+      coordinates: { type: [Number], required: true, default: [0, 0] },
+    },
+    features: [
+      {
+        name: { type: String, required: true },
+        quantity: { type: Number, required: true },
       },
-    },
-    features: {
-      type: [{
-        name: {
-          type: String,
-          required: true
-        },
-        quantity: {
-          type: Number,
-          required: true
-        }
-      }],
-      required: false,
-      null: true
-    },
-    env_facilities: {
-      type: [String],
-      required: false,
-      null: true
-    },
+    ],
+    env_facilities: { type: [String] },
     status: {
       type: String,
-      enum: PropertyStatus,
+      enum: PropertyStatusEnum,
       required: true,
-      default: PropertyStatus.available
+      default: PropertyStatusEnum.available,
     },
-  }, { timestamps: true }
+  },
+  { timestamps: true }
 );
 
-// Pre-save hook to auto-populate the slug field
-propertySchema.pre("save", function (next) {
-  if (this.isModified("title")) {
-    this.slug = slugify(this.title, { lower: true, strict: true });
-  }
+// Pre-save hook to generate unique slug
+propertySchema.pre<IProperty & Document>("save", async function (next) {
+  if (!this.isModified("title")) return next();
+
+  const Property = this.constructor as Model<IProperty>;
+  this.slug = await generateUniqueSlug(Property, this.title, this._id);
+
   next();
 });
 
