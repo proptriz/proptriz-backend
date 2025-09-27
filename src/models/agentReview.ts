@@ -2,7 +2,7 @@ import mongoose, { Schema, SchemaTypes } from "mongoose";
 import { IAgentReview } from "../types";
 import User from "./user";
 import Agent from "./agent";
-import { RatingScale } from "./enums/ratingScale";
+import { RatingScaleEnum } from "./enums/RatingScaleEnum";
 
 const agentReviewSchema = new Schema<IAgentReview>(
   {
@@ -23,7 +23,7 @@ const agentReviewSchema = new Schema<IAgentReview>(
     },
     rating: {
       type: Number,
-      enum: Object.values(RatingScale).filter(value => typeof value === 'number'),
+      enum: Object.values(RatingScaleEnum).filter(value => typeof value === 'number'),
       required: true,
     },
     comment: {

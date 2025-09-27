@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import PropertyService from "../services/property.service";
+import logger from "../config/loggingConfig";
+// import dropCollection from "../../scripts/dropTable"
 
 const PropertyController = {
   // Add a new property
@@ -33,30 +35,38 @@ const PropertyController = {
   // Get all properties with pagination & filters
   async getAllProperties(req: Request, res: Response) {
     try {
-      console.log("Fetching all properties with filters:", req.query);
+      // logger.info("Fetching all properties with filters:", req.query);
+      const { category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
+
+      let boundsFilter = {};
+
+      if (category && ne_lat && ne_lng && sw_lat && sw_lng) {
+        boundsFilter = {
+          category: category,
+          "map_location": {
+            $geoWithin: {
+              $box: [
+                [parseFloat(sw_lng as string), parseFloat(sw_lat as string)], // bottom-left
+                [parseFloat(ne_lng as string), parseFloat(ne_lat as string)], // top-right
+              ]
+            }
+          }
+        };
+      }
 
       // Parse pagination values from query
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = parseInt(req.query.limit as string, 10) || 10;
       const skip = (page - 1) * limit;
 
-      // Parse filters safely
-      let filters = {};
-      if (req.query.filters) {
-        try {
-          filters = JSON.parse(req.query.filters as string);
-        } catch (error) {
-          return res.status(400).json({ success: false, message: "Invalid filters format" });
-        }
-      }
-
+      // await dropCollection("User");
       // Fetch properties with pagination & filters
-      const properties = await PropertyService.getProperties(skip, limit, filters);
+      const properties = await PropertyService.getProperties(skip, limit, boundsFilter);
 
       console.log("Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
-        data: properties,
+        properties: properties,
         currentPage: page,
         totalPages: Math.ceil(properties.length / limit),
       });

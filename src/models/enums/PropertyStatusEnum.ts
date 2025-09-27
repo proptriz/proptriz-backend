@@ -1,4 +1,4 @@
-export enum PropertyStatus {
+export enum PropertyStatusEnum {
   available = "available",
   sold = "sold",
   rented = "rented",

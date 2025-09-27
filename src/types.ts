@@ -1,6 +1,9 @@
 import { Document, Types } from "mongoose";
+import { CategoryEnum } from "./models/enums/CategoryEnum";
 
-
+export interface BaseDocument extends Document {
+  _id: Types.ObjectId;
+}
 export interface IUser extends Document {
     username: string; // unique identifyer
     pi_uid: string; // hashed user password
@@ -69,19 +72,19 @@ export interface A2UPaymentDataType {
 
 export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
 
-export interface IProperty extends Document {
+export interface IProperty extends BaseDocument {
     banner: string; // URL of the property image or image with index = 0
     title: string; // Title of the property (e.g. 3 bedroom flat, self contain, )
     slug: string;
     address: string; // Location of the property
     price: number; // Price per month
     listed_for: string; // (e.g. "sell"/ "rent")
-    category: string; // The class of property (e.g. house, land, shop, office, hotel )
+    category: CategoryEnum; // The class of property (e.g. house, land, shop, office, hotel )
     period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)
     negotiable: boolean; // (true/false)
     property_terms?: string // agent terms and condit
     images: string[]; //Other property images for gallery
-    user_id: Types.ObjectId; //foreign key representing agent that list the property
+    user: Types.ObjectId; //foreign key representing agent that list the property
     map_location?: {
       type: 'Point';
       coordinates: [number, number];

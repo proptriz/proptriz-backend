@@ -1,7 +1,8 @@
-export enum Category {
+export enum CategoryEnum {
     house = "house",
     hotel = "hotel",
     office = "office",
     land = "land",
-    shop = "shop"
+    shop = "shop",
+    others = "others"
 }
