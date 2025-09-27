@@ -5,7 +5,7 @@ dotenv.config();
 export const env = {
     PORT: process.env.PORT,
     NODE_ENV: process.env.NODE_ENV || 'development',
-    MONGODB_URL: process.env.MONGODB_URL || '',
+    MONGODB_URI: process.env.MONGODB_URI || '',
     JWT_SECRET: process.env.JWT_SECRET || 'default_secret',
     PI_API_KEY: process.env.PI_API_KEY || '',
     PLATFORM_API_URL: process.env.PLATFORM_API_URL || '',
