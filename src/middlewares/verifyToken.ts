@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { decodeUserToken } from "../helpers/jwt";
 import { IUser } from "../types";
+import logger from "../config/loggingConfig";
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -19,14 +20,14 @@ export const verifyToken = async (
 
   // Fallback to the authorization header if token is not in the cookie
   const authHeader = req.headers.authorization;
-  console.log("CHECK AUTH TOKEN, ", tokenFromCookie);
+  logger.debug("CHECK AUTH TOKEN, ", tokenFromCookie);
   const tokenFromHeader = authHeader && authHeader.split(" ")[1];
 
   // Prioritize token from cookies, then from header
   const token = tokenFromCookie || tokenFromHeader;
 
   if (!token) {
-    console.warn("Authentication token is missing.");
+    logger.warn("Authentication token is missing.");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -35,7 +36,7 @@ export const verifyToken = async (
     const currentUser = await decodeUserToken(token);
 
     if (!currentUser) {
-      console.warn("Authentication token is invalid or expired.");
+      logger.warn("Authentication token is invalid or expired.");
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -44,7 +45,7 @@ export const verifyToken = async (
     req.token = token;
     next();
   } catch (error) {
-    console.error('Failed to verify token:', error);
+    logger.error('Failed to verify token:', error);
     return res.status(500).json({ message: 'Failed to verify token; please try again later' });
   }
 };
@@ -59,7 +60,7 @@ export const verifyAdminToken = (
   const authHeader = req.headers.authorization;
   const base64Credentials = authHeader && authHeader.split(" ")[1];
   if (!base64Credentials) {
-    console.warn("Admin credentials are missing.");
+    logger.warn("Admin credentials are missing.");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -67,10 +68,10 @@ export const verifyAdminToken = (
   const [username, password] = credentials.split(":");
 
   if (username !== ADMIN_API_USERNAME || password !== ADMIN_API_PASSWORD) {
-    console.warn("Admin credentials are invalid.");
+    logger.warn("Admin credentials are invalid.");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  console.info("Admin credentials verified successfully.");
+  logger.info("Admin credentials verified successfully.");
   next();
 };

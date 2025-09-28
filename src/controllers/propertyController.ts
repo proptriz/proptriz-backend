@@ -7,13 +7,13 @@ const PropertyController = {
   // Add a new property
   async addProperty(req: Request, res: Response) {
     try {
-      console.log("Request to create property:", req.body);
+      logger.info("Request to create property:", req.body);
       const propertyData = req.body;
       const property = await PropertyService.createProperty(propertyData);
-      console.log("Property created successfully:", property);
+      logger.info("Property created successfully:", property);
       res.status(201).json({ success: true, data: property });
     } catch (error: any) {
-      console.error("Error creating property:", error.message);
+      logger.error("Error creating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
@@ -21,13 +21,13 @@ const PropertyController = {
   // Get a property by ID
   async getPropertyById(req: Request, res: Response) {
     try {
-      console.log("Fetching property with ID:", req.params.pid);
+      logger.info("Fetching property with ID:", req.params.pid);
       const propertyId = req.params.pid;
       const property = await PropertyService.getPropertyById(propertyId);
-      console.log("Property fetched successfully:", property);
+      logger.info("Property fetched successfully:", property);
       res.status(200).json( property );
     } catch (error: any) {
-      console.error("Error fetching property by ID:", error.message);
+      logger.error("Error fetching property by ID:", error.message);
       res.status(404).json({ success: false, message: error.message });
     }
   },
@@ -63,7 +63,7 @@ const PropertyController = {
       // Fetch properties with pagination & filters
       const properties = await PropertyService.getProperties(skip, limit, boundsFilter);
 
-      console.log("Properties fetched successfully:", properties.length);
+      logger.info("Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
         properties: properties,
@@ -72,7 +72,7 @@ const PropertyController = {
       });
 
     } catch (error: any) {
-      console.error("Error fetching all properties:", error.message);
+      logger.error("Error fetching all properties:", error.message);
       return res.status(500).json({ success: false, message: error.message });
     }
   },
@@ -80,14 +80,14 @@ const PropertyController = {
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
     try {
-      console.log("Request to update property with ID:", req.params.id, "Updates:", req.body);
+      logger.info("Request to update property with ID:", req.params.id, "Updates:", req.body);
       const propertyId = req.params.id;
       const updates = req.body;
       const updatedProperty = await PropertyService.updateProperty(propertyId, updates);
-      console.log("Property updated successfully:", updatedProperty);
+      logger.info("Property updated successfully:", updatedProperty);
       res.status(200).json({ success: true, data: updatedProperty });
     } catch (error: any) {
-      console.error("Error updating property:", error.message);
+      logger.error("Error updating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
@@ -95,13 +95,13 @@ const PropertyController = {
   // Delete a property by ID
   async deleteProperty(req: Request, res: Response) {
     try {
-      console.log("Request to delete property with ID:", req.params.id);
+      logger.info("Request to delete property with ID:", req.params.id);
       const propertyId = req.params.id;
       await PropertyService.deleteProperty(propertyId);
-      console.log("Property deleted successfully:", propertyId);
+      logger.info("Property deleted successfully:", propertyId);
       res.status(200).json({ success: true, message: "Property deleted successfully." });
     } catch (error: any) {
-      console.error("Error deleting property:", error.message);
+      logger.error("Error deleting property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
