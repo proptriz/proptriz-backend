@@ -4,7 +4,7 @@
     "authur": "Proptriz Team",
     "license": "PiOS",
     "description": "Proptriz Backend",
-    "main": "index.ts",
+    "main": "index.js",
     "private": true,
     "scripts": {
         "build": "tsc",
@@ -13,8 +13,6 @@
         "test": "jest --passWithNoTests"
     },
     "dependencies": {
-        "@faker-js/faker": "^9.4.0",
-        "@vercel/functions": "^3.1.0",
         "axios": "^1.7.4",
         "bcryptjs": "^2.4.3",
         "body-parser": "^1.20.2",
@@ -34,6 +32,7 @@
         "winston": "^3.17.0"
     },
     "devDependencies": {
+        "@faker-js/faker": "^9.4.0",
         "@types/bcryptjs": "^2.4.6",
         "@types/cookie-parser": "^1.4.7",
         "@types/cors": "^2.8.17",
