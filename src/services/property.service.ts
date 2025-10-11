@@ -1,4 +1,5 @@
 import logger from "../config/loggingConfig";
+import { buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
@@ -27,17 +28,28 @@ class PropertyService {
   async getProperties(
     skip: number,
     pageSize: number,
+    search_query: string,
     filter: FilterQuery<IProperty> = {}
   ): Promise<any[]> {
     try {
+      // Build text/multi-field search
+      // ✅ Merge filters safely
+      const searchCriteria = buildHybridSearchCriteria(search_query);
+      logger.info("search query:", JSON.stringify(searchCriteria, null, 2));
+
       const pipeline: PipelineStage[] = [
-        { $match: filter },
+        {
+          $match: {
+            ...filter,
+            ...searchCriteria, // ✅ Correct merge inside $match
+          },
+        },
         { $sort: { createdAt: -1 } },
         { $skip: skip },
         { $limit: pageSize },
         {
           $lookup: {
-            from: "users", // must match your "Agent" collection name in Mongo
+            from: "users",
             localField: "user",
             foreignField: "_id",
             as: "user",
@@ -46,28 +58,21 @@ class PropertyService {
         { $unwind: "$user" },
         {
           $project: {
-            id: "$_id", // rename
-            _id: 0,     // hide default _id
+            id: "$_id",
+            _id: 0,
             title: 1,
             price: 1,
             address: 1,
             banner: 1,
             listed_for: 1,
             period: 1,
-            // user: 1,
-
-            // ✅ Extract GeoJSON [lng, lat] into fields
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-
-            // ✅ only pick the needed user fields
-            // "user.id": "$user._id",
-            // "user._id": 0, // optional, hide raw Mongo _id
-            
             "user.username": 1,
           },
         },
       ];
+
 
       const properties = await Property.aggregate(pipeline).exec();
       logger.info("fetched properties", properties.length);
@@ -76,6 +81,7 @@ class PropertyService {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
   }
+
 
   // Update a property by its ID
   async updateProperty(propertyId: string, updateData: UpdateQuery<IProperty>): Promise<IProperty | null> {
