@@ -1,16 +1,57 @@
 import logger from "../config/loggingConfig";
 import { buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
-import { IProperty } from "../types";
+import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
+import { uploadImages } from "./misc/image.service";
 
 class PropertyService {
   // Create a new property
-  async createProperty(propertyData: IProperty): Promise<IProperty> {
+  async createProperty(authUser: IUser, propertyData: any): Promise<IProperty> {
     try {
-      const property = new Property(propertyData);
-      return await property.save();
+      // const { title, price, latitude, longitude, features, env_facilities } = propertyData;
+      logger.info("Service log: creating property", { propertyData });
+
+      // ✅ Set coordinates safely
+      const prop_cord =
+        propertyData.latitude && propertyData.longitude ? [parseFloat(propertyData.longitude), parseFloat(propertyData.latitude)] : [0, 0];
+
+      // ✅ Create base property object
+      const property = new Property({
+        ...propertyData,
+        price: parseFloat(propertyData.price),
+        user: authUser._id,
+        map_location: {
+          type: "Point",
+          coordinates: prop_cord,
+        },
+        features: propertyData.features || [],
+        env_facilities: propertyData.env_facilities || [],
+      });
+
+      // ✅ Handle image upload if file(s) exist
+      let uploadedImages: string[] = [];
+      if (propertyData.files && propertyData.files.length > 0) {
+        uploadedImages = await uploadImages(
+          property.slug,
+          propertyData.files as Express.Multer.File[],
+          ['properties', propertyData.category]
+          
+        );
+      }
+
+      // ✅ Assign images properly
+      if (uploadedImages.length > 0) {
+        property.banner = uploadedImages[0];
+        property.images = uploadedImages;
+      }
+
+      const savedProperty = await property.save();
+      logger.info("Property created successfully:", savedProperty._id);
+
+      return savedProperty;
     } catch (error: any) {
+      logger.error("Error in PropertyService.createProperty:", error.message);
       throw new Error(`Failed to create property: ${error.message}`);
     }
   }

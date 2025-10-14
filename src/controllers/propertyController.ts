@@ -1,22 +1,34 @@
 import { Request, Response } from "express";
 import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
+import { IUser } from "../types";
 // import dropCollection from "../../scripts/dropTable"
 
 const PropertyController = {
+  
   // Add a new property
   async addProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to create property:", req.body);
-      const propertyData = req.body;
-      const property = await PropertyService.createProperty(propertyData);
+      const authUser = req.currentUser as IUser;
+
+      const formData = req.body;
+      logger.debug('Received formData for registration:', { formData });
+
+      const files = req.files; // if you're uploading images
+    
+      logger.info("Property data:", {formData});
+      logger.info("Uploaded files:", files);
+
+      const property = await PropertyService.createProperty(authUser, {...formData});
+
       logger.info("Property created successfully:", property);
-      res.status(201).json({ success: true, data: property });
+      res.status(200).json({ success: true, data: property });
     } catch (error: any) {
       logger.error("Error creating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
+
 
   // Get a property by ID
   async getPropertyById(req: Request, res: Response) {
