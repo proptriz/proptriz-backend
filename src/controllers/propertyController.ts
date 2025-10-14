@@ -1,22 +1,34 @@
 import { Request, Response } from "express";
 import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
+import { IUser } from "../types";
 // import dropCollection from "../../scripts/dropTable"
 
 const PropertyController = {
+  
   // Add a new property
   async addProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to create property:", req.body);
-      const propertyData = req.body;
-      const property = await PropertyService.createProperty(propertyData);
+      const authUser = req.currentUser as IUser;
+
+      const formData = req.body;
+      logger.debug('Received formData for registration:', { formData });
+
+      const files = req.files; // if you're uploading images
+    
+      logger.info("Property data:", {formData});
+      logger.info("Uploaded files:", files);
+
+      const property = await PropertyService.createProperty(authUser, {...formData});
+
       logger.info("Property created successfully:", property);
-      res.status(201).json({ success: true, data: property });
+      res.status(200).json({ success: true, data: property });
     } catch (error: any) {
       logger.error("Error creating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
+
 
   // Get a property by ID
   async getPropertyById(req: Request, res: Response) {
@@ -33,49 +45,59 @@ const PropertyController = {
   },
 
   // Get all properties with pagination & filters
+  // Controller
   async getAllProperties(req: Request, res: Response) {
     try {
-      // logger.info("Fetching all properties with filters:", req.query);
-      const { category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
+      const { query, category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
 
-      let boundsFilter = {};
+      let boundsFilter: any = {};
+      const searchQuery = query?.toString().trim() || '';
 
-      if (category && ne_lat && ne_lng && sw_lat && sw_lng) {
+      // ✅ Build bounds filter correctly
+      if (category || (ne_lat && ne_lng && sw_lat && sw_lng)) {
         boundsFilter = {
-          category: category,
-          "map_location": {
-            $geoWithin: {
-              $box: [
-                [parseFloat(sw_lng as string), parseFloat(sw_lat as string)], // bottom-left
-                [parseFloat(ne_lng as string), parseFloat(ne_lat as string)], // top-right
-              ]
-            }
-          }
+          ...(category && { category }),
+          ...(ne_lat &&
+            ne_lng &&
+            sw_lat &&
+            sw_lng && {
+              map_location: {
+                $geoWithin: {
+                  $box: [
+                    [parseFloat(sw_lng as string), parseFloat(sw_lat as string)], // bottom-left
+                    [parseFloat(ne_lng as string), parseFloat(ne_lat as string)], // top-right
+                  ],
+                },
+              },
+            }),
         };
       }
 
-      // Parse pagination values from query
+      // Pagination
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = parseInt(req.query.limit as string, 10) || 10;
       const skip = (page - 1) * limit;
 
-      // await dropCollection("User");
-      // Fetch properties with pagination & filters
-      const properties = await PropertyService.getProperties(skip, limit, boundsFilter);
+      const properties = await PropertyService.getProperties(
+        skip,
+        limit,
+        searchQuery,
+        boundsFilter
+      );
 
       logger.info("Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
-        properties: properties,
+        properties,
         currentPage: page,
         totalPages: Math.ceil(properties.length / limit),
       });
-
     } catch (error: any) {
-      logger.error("Error fetching all properties:", error.message);
+      logger.error("Controller Error fetching all properties:", error.message || error);
       return res.status(500).json({ success: false, message: error.message });
     }
   },
+
 
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
