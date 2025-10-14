@@ -9,14 +9,14 @@ import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
 const propertySchema = new Schema<IProperty>(
   {
     banner: { type: String, default: "" },
-    title: { type: String, required: true },
+    title: { type: String, required: true, index: true },
     slug: {
       type: String,
       lowercase: true,
       unique: true, // ensure DB-level uniqueness
       index: true,
     },
-    address: { type: String, required: true, default: "" },
+    address: { type: String, required: true, default: "", index: true },
     price: { type: Number, required: true },
     listed_for: {
       type: String,
@@ -36,7 +36,7 @@ const propertySchema = new Schema<IProperty>(
       default: RenewalEnum.yearly,
     },
     negotiable: { type: Boolean, default: true, required: true },
-    property_terms: { type: String },
+    property_terms: { type: String, index: true, },
     images: { type: [String], default: [] },
     user: { type: SchemaTypes.ObjectId, ref: "User", required: true },
     map_location: {
@@ -49,7 +49,7 @@ const propertySchema = new Schema<IProperty>(
     },
     features: [
       {
-        name: { type: String, required: true },
+        name: { type: String, required: true, index: true, },
         quantity: { type: Number, required: true },
       },
     ],
@@ -64,6 +64,11 @@ const propertySchema = new Schema<IProperty>(
   { timestamps: true }
 );
 
+propertySchema.index({
+  title: "text",
+  address: "text",
+  property_terms: "text",
+});
 // Pre-save hook to generate unique slug
 propertySchema.pre<IProperty & Document>("save", async function (next) {
   if (!this.isModified("title")) return next();
