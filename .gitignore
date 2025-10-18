@@ -10,6 +10,7 @@
 .vscode
 
 # local misc
+/tmp
 uploads
 /scripts
 generateMockData

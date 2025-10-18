@@ -1,12 +1,14 @@
 import { v2 as cloudinary } from 'cloudinary';
+import logger from '../config/loggingConfig';
+import { env } from './env';
 
 (async function() {
 
     // Configuration
     cloudinary.config({ 
-        cloud_name: 'dszb1nqtj', 
-        api_key: '614867382546323', 
-        api_secret: '<your_api_secret>' // Click 'View API Keys' above to copy your API secret
+        cloud_name: env.CLOUDINARY_CLOUD_NAME, 
+        api_key: env.CLOUDINARY_API_KEY, 
+        api_secret: env.CLOUDINARY_API_SECRET
     });
     
     // Upload an image
@@ -20,7 +22,7 @@ import { v2 as cloudinary } from 'cloudinary';
            console.log(error);
        });
     
-    console.log(uploadResult);
+    logger.info(uploadResult);
     
     // Optimize delivery by resizing and applying auto-format and auto-quality
     const optimizeUrl = cloudinary.url('shoes', {
@@ -28,7 +30,7 @@ import { v2 as cloudinary } from 'cloudinary';
         quality: 'auto'
     });
     
-    console.log(optimizeUrl);
+    logger.info(optimizeUrl);
     
     // Transform the image: auto-crop to square aspect_ratio
     const autoCropUrl = cloudinary.url('shoes', {
@@ -38,5 +40,5 @@ import { v2 as cloudinary } from 'cloudinary';
         height: 500,
     });
     
-    console.log(autoCropUrl);    
+    logger.info(autoCropUrl);    
 })();

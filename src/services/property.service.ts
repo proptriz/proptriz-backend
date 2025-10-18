@@ -1,15 +1,57 @@
 import logger from "../config/loggingConfig";
+import { buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
-import { IProperty } from "../types";
+import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
+import { uploadImages } from "./misc/image.service";
 
 class PropertyService {
   // Create a new property
-  async createProperty(propertyData: IProperty): Promise<IProperty> {
+  async createProperty(authUser: IUser, propertyData: any): Promise<IProperty> {
     try {
-      const property = new Property(propertyData);
-      return await property.save();
+      // const { title, price, latitude, longitude, features, env_facilities } = propertyData;
+      logger.info("Service log: creating property", { propertyData });
+
+      // ✅ Set coordinates safely
+      const prop_cord =
+        propertyData.latitude && propertyData.longitude ? [parseFloat(propertyData.longitude), parseFloat(propertyData.latitude)] : [0, 0];
+
+      // ✅ Create base property object
+      const property = new Property({
+        ...propertyData,
+        price: parseFloat(propertyData.price),
+        user: authUser._id,
+        map_location: {
+          type: "Point",
+          coordinates: prop_cord,
+        },
+        features: propertyData.features || [],
+        env_facilities: propertyData.env_facilities || [],
+      });
+
+      // ✅ Handle image upload if file(s) exist
+      let uploadedImages: string[] = [];
+      if (propertyData.files && propertyData.files.length > 0) {
+        uploadedImages = await uploadImages(
+          property.slug,
+          propertyData.files as Express.Multer.File[],
+          ['properties', propertyData.category]
+          
+        );
+      }
+
+      // ✅ Assign images properly
+      if (uploadedImages.length > 0) {
+        property.banner = uploadedImages[0];
+        property.images = uploadedImages;
+      }
+
+      const savedProperty = await property.save();
+      logger.info("Property created successfully:", savedProperty._id);
+
+      return savedProperty;
     } catch (error: any) {
+      logger.error("Error in PropertyService.createProperty:", error.message);
       throw new Error(`Failed to create property: ${error.message}`);
     }
   }
@@ -17,7 +59,12 @@ class PropertyService {
   // Get a single property by its ID
   async getPropertyById(propertyId: string): Promise<IProperty | null> {
     try {
-      return await Property.findById(propertyId).populate("agent").exec();
+      const property = await Property.findById(propertyId).populate('user').lean();
+      if (property) {
+        return property
+      } 
+      return null
+      
     } catch (error: any) {
       throw new Error(`Failed to retrieve property with ID ${propertyId}: ${error.message}`);
     }
@@ -27,17 +74,28 @@ class PropertyService {
   async getProperties(
     skip: number,
     pageSize: number,
+    search_query: string,
     filter: FilterQuery<IProperty> = {}
   ): Promise<any[]> {
     try {
+      // Build text/multi-field search
+      // ✅ Merge filters safely
+      const searchCriteria = buildHybridSearchCriteria(search_query);
+      logger.info("search query:", JSON.stringify(searchCriteria, null, 2));
+
       const pipeline: PipelineStage[] = [
-        { $match: filter },
+        {
+          $match: {
+            ...filter,
+            ...searchCriteria, // ✅ Correct merge inside $match
+          },
+        },
         { $sort: { createdAt: -1 } },
         { $skip: skip },
         { $limit: pageSize },
         {
           $lookup: {
-            from: "users", // must match your "Agent" collection name in Mongo
+            from: "users",
             localField: "user",
             foreignField: "_id",
             as: "user",
@@ -46,28 +104,21 @@ class PropertyService {
         { $unwind: "$user" },
         {
           $project: {
-            id: "$_id", // rename
-            _id: 0,     // hide default _id
+            id: "$_id",
+            _id: 0,
             title: 1,
             price: 1,
             address: 1,
             banner: 1,
             listed_for: 1,
             period: 1,
-            // user: 1,
-
-            // ✅ Extract GeoJSON [lng, lat] into fields
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-
-            // ✅ only pick the needed user fields
-            // "user.id": "$user._id",
-            // "user._id": 0, // optional, hide raw Mongo _id
-            
             "user.username": 1,
           },
         },
       ];
+
 
       const properties = await Property.aggregate(pipeline).exec();
       logger.info("fetched properties", properties.length);
@@ -76,6 +127,7 @@ class PropertyService {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
   }
+
 
   // Update a property by its ID
   async updateProperty(propertyId: string, updateData: UpdateQuery<IProperty>): Promise<IProperty | null> {
