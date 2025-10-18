@@ -59,7 +59,12 @@ class PropertyService {
   // Get a single property by its ID
   async getPropertyById(propertyId: string): Promise<IProperty | null> {
     try {
-      return await Property.findById(propertyId).populate("agent").exec();
+      const property = await Property.findById(propertyId).populate('user').lean();
+      if (property) {
+        return property
+      } 
+      return null
+      
     } catch (error: any) {
       throw new Error(`Failed to retrieve property with ID ${propertyId}: ${error.message}`);
     }
