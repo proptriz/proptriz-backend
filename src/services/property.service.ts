@@ -128,6 +128,68 @@ class PropertyService {
     }
   }
 
+  async getNearestProperties(
+  propertyId: string,
+  limit: number = 4
+): Promise<any[]> {
+  try {
+    // 1️⃣ Find the property to get its coordinates
+    const targetProperty = await Property.findById(propertyId).select("map_location").lean();
+
+    if (!targetProperty || !targetProperty.map_location?.coordinates) {
+      throw new Error("Property location not found");
+    }
+
+    const [lng, lat] = targetProperty.map_location.coordinates;
+
+    // 2️⃣ Run geo aggregation to find nearby properties
+    const pipeline: PipelineStage[] = [
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [lng, lat] },
+          distanceField: "distance",
+          spherical: true,
+          key: "map_location",
+          query: { _id: { $ne: targetProperty._id } }, // exclude itself
+        },
+      },
+      { $sort: { distance: 1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+      {
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          price: 1,
+          address: 1,
+          banner: 1,
+          listed_for: 1,
+          period: 1,
+          distance: 1,
+          longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
+          latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
+          "user.username": 1,
+        },
+      },
+    ];
+
+    const nearestProperties = await Property.aggregate(pipeline).exec();
+    return nearestProperties;
+  } catch (error: any) {
+    throw new Error(`Failed to find nearest properties: ${error.message}`);
+  }
+}
+
+
 
   // Update a property by its ID
   async updateProperty(propertyId: string, updateData: UpdateQuery<IProperty>): Promise<IProperty | null> {
