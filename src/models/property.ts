@@ -13,7 +13,7 @@ const propertySchema = new Schema<IProperty>(
     slug: {
       type: String,
       lowercase: true,
-      unique: true, // ensure DB-level uniqueness
+      unique: true,
       index: true,
     },
     address: { type: String, required: true, default: "", index: true },
@@ -36,7 +36,7 @@ const propertySchema = new Schema<IProperty>(
       default: RenewalEnum.yearly,
     },
     negotiable: { type: Boolean, default: true, required: true },
-    property_terms: { type: String, index: true, },
+    property_terms: { type: String, index: true },
     images: { type: [String], default: [] },
     user: { type: SchemaTypes.ObjectId, ref: "User", required: true },
     map_location: {
@@ -49,7 +49,7 @@ const propertySchema = new Schema<IProperty>(
     },
     features: [
       {
-        name: { type: String, required: true, index: true, },
+        name: { type: String, required: true, index: true },
         quantity: { type: Number, required: true },
       },
     ],
@@ -64,12 +64,16 @@ const propertySchema = new Schema<IProperty>(
   { timestamps: true }
 );
 
+// ✅ Separate text and geo indexes
 propertySchema.index({
   title: "text",
   address: "text",
   property_terms: "text",
 });
-// Pre-save hook to generate unique slug
+
+propertySchema.index({ map_location: "2dsphere" });
+
+// 🌀 Pre-save hook for unique slug
 propertySchema.pre<IProperty & Document>("save", async function (next) {
   if (!this.isModified("title")) return next();
 

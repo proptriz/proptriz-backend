@@ -36,7 +36,7 @@ const PropertyController = {
       logger.info("Fetching property with ID:", req.params.pid);
       const propertyId = req.params.pid;
       const property = await PropertyService.getPropertyById(propertyId);
-      logger.info("Property fetched successfully:", property);
+      logger.info("Property fetched successfully:");
       res.status(200).json( property );
     } catch (error: any) {
       logger.error("Error fetching property by ID:", error.message);
@@ -45,7 +45,6 @@ const PropertyController = {
   },
 
   // Get all properties with pagination & filters
-  // Controller
   async getAllProperties(req: Request, res: Response) {
     try {
       const { query, category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
@@ -98,6 +97,31 @@ const PropertyController = {
     }
   },
 
+  // Get all properties with pagination & filters
+  async getNearestProperties(req: Request, res: Response) {
+    try {
+      const propertyId = req.params.pid;
+      logger.info("Fetching Nearest properties from property ID:", {propertyId});
+
+      const limit = parseInt(req.query.limit as string, 10) || 6;
+
+      const properties = await PropertyService.getNearestProperties(
+        propertyId,
+        limit
+      );
+
+      logger.info("Nearest Properties fetched successfully:", properties.length);
+      return res.status(200).json({
+        success: true,
+        properties,
+        totalPages: Math.ceil(properties.length / limit),
+      });
+
+    } catch (error: any) {
+      logger.error("Controller Error fetching all properties:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
 
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
