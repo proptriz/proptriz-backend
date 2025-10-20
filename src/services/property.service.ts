@@ -3,18 +3,19 @@ import { buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
-import { uploadImages } from "./misc/image.service";
+import { uploadToCloudinary } from "./misc/image.service";
 
 class PropertyService {
   // Create a new property
   async createProperty(authUser: IUser, propertyData: any): Promise<IProperty> {
     try {
-      // const { title, price, latitude, longitude, features, env_facilities } = propertyData;
       logger.info("Service log: creating property", { propertyData });
 
-      // ✅ Set coordinates safely
+      // ✅ Coordinates
       const prop_cord =
-        propertyData.latitude && propertyData.longitude ? [parseFloat(propertyData.longitude), parseFloat(propertyData.latitude)] : [0, 0];
+        propertyData.latitude && propertyData.longitude
+          ? [parseFloat(propertyData.longitude), parseFloat(propertyData.latitude)]
+          : [0, 0];
 
       // ✅ Create base property object
       const property = new Property({
@@ -29,26 +30,33 @@ class PropertyService {
         env_facilities: propertyData.env_facilities || [],
       });
 
-      // ✅ Handle image upload if file(s) exist
-      let uploadedImages: string[] = [];
-      if (propertyData.files && propertyData.files.length > 0) {
-        uploadedImages = await uploadImages(
-          property.slug,
-          propertyData.files as Express.Multer.File[],
-          ['properties', propertyData.category]
-          
-        );
-      }
-
-      // ✅ Assign images properly
-      if (uploadedImages.length > 0) {
-        property.banner = uploadedImages[0];
-        property.images = uploadedImages;
-      }
-
+      // ✅ Step 1: Save first to trigger pre-save hook for slug
       const savedProperty = await property.save();
-      logger.info("Property created successfully:", savedProperty._id);
+      logger.info("Property base saved with slug:", savedProperty.slug);
 
+      // ✅ Step 2: Now upload images using slug
+      if (propertyData.files && propertyData.files.length > 0) {
+        const uploadPromises = propertyData.files.map(
+          async (file: Express.Multer.File, index: number) => {
+            return uploadToCloudinary(
+              file.buffer,
+              `propTriz/properties/${savedProperty.category}`,
+              `${savedProperty.slug}-${index + 1}`
+            );
+          }
+        );
+
+        const imageUrls = await Promise.all(uploadPromises);
+
+        // ✅ Step 3: Update banner and images
+        if (imageUrls.length > 0) {
+          savedProperty.banner = imageUrls[0];
+          savedProperty.images = imageUrls;
+          await savedProperty.save(); // update with images
+        }
+      }
+
+      logger.info("Property created successfully:", savedProperty._id);
       return savedProperty;
     } catch (error: any) {
       logger.error("Error in PropertyService.createProperty:", error.message);
