@@ -10,25 +10,36 @@ const PropertyController = {
   async addProperty(req: Request, res: Response) {
     try {
       const authUser = req.currentUser as IUser;
-
       const formData = req.body;
-      logger.debug('Received formData for registration:', { formData });
+      const files = req.files as Express.Multer.File[];
 
-      const files = req.files; // if you're uploading images
-    
-      logger.info("Property data:", {formData});
-      logger.info("Uploaded files:", files);
+      logger.debug("Received formData for registration:", { formData });
 
-      const property = await PropertyService.createProperty(authUser, {...formData});
+      if (!files || files.length === 0)
+        return res.status(400).json({ message: "No images uploaded" });
 
-      logger.info("Property created successfully:", property);
-      res.status(200).json({ success: true, data: property });
+      if (files.length > 5)
+        return res.status(400).json({ message: "Maximum 5 images allowed" });
+
+      logger.info("Property data:", { formData });
+      logger.info("Uploaded files:", files.map(f => f.originalname));
+
+      // ✅ Pass both form data and files
+      const property = await PropertyService.createProperty(
+        authUser, 
+        {
+          ...formData,
+          files,
+        }
+    );
+
+      logger.info("Property created successfully:", property._id);
+      res.status(201).json({ success: true, data: property });
     } catch (error: any) {
       logger.error("Error creating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
-
 
   // Get a property by ID
   async getPropertyById(req: Request, res: Response) {
