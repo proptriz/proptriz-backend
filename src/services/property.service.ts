@@ -9,7 +9,7 @@ class PropertyService {
   // Create a new property
   async createProperty(authUser: IUser, propertyData: any): Promise<IProperty> {
     try {
-      logger.info("Service log: creating property", { propertyData });
+      // logger.info("Service log: creating property", { propertyData });
 
       // ✅ Coordinates
       const prop_cord =
