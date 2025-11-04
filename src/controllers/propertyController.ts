@@ -165,6 +165,36 @@ const PropertyController = {
     }
   },
 
+    // Get all properties with pagination & filters
+  async getUserProperties(req: Request, res: Response) {
+    try {
+      const currentUser = req.currentUser as IUser;
+      logger.info("Fetching User properties for user ID:", currentUser._id);
+
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 10;
+      const skip = (page - 1) * limit;
+
+      const properties = await PropertyService.getUserProperties(
+        currentUser,
+        skip,
+        limit
+      );
+
+      logger.info("Nearest Properties fetched successfully:", properties.length);
+      return res.status(200).json({
+        success: true,
+        properties,
+        totalPages: Math.ceil(properties.length / limit),
+      });
+
+    } catch (error: any) {
+      logger.error("Controller Error fetching all properties:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
     try {

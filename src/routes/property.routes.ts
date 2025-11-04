@@ -8,8 +8,9 @@ const propertyRoutes = Router();
 propertyRoutes.get("/all", PropertyController.getAllProperties);
 propertyRoutes.get("/:pid", PropertyController.getPropertyById);
 propertyRoutes.get("/nearest-prop/:pid", PropertyController.getNearestProperties);
+propertyRoutes.get("/user/listed", verifyToken, PropertyController.getUserProperties);
 propertyRoutes.post("/add", verifyToken, upload.array('images', 5), PropertyController.addProperty);
-propertyRoutes.put("/update/:pid", PropertyController.updateProperty);
+propertyRoutes.put("/update/:pid", verifyToken, PropertyController.updateProperty);
 propertyRoutes.delete("/delete/:pid", PropertyController.deleteProperty);
 
 export default propertyRoutes;
