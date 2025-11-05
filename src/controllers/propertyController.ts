@@ -13,31 +13,62 @@ const PropertyController = {
       const formData = req.body;
       const files = req.files as Express.Multer.File[];
 
-      logger.debug("Received formData for registration:", { formData });
+      // ✅ Log only the keys of formData, not full content
+      // logger.debug("Received property formData keys:", Object.keys(formData));
 
+      // ✅ Image validation
       if (!files || files.length === 0)
         return res.status(400).json({ message: "No images uploaded" });
 
       if (files.length > 5)
         return res.status(400).json({ message: "Maximum 5 images allowed" });
 
-      logger.info("Property data:", { formData });
-      logger.info("Uploaded files:", files.map(f => f.originalname));
+      // ✅ Log minimal file info — exclude Buffer
+      const fileInfo = files.map(f => ({
+        originalname: f.originalname,
+        mimetype: f.mimetype,
+        sizeKB: Math.round(f.size / 1024),
+      }));
+      logger.info("Uploaded files metadata:", fileInfo);
 
-      // ✅ Pass both form data and files
-      const property = await PropertyService.createProperty(
-        authUser, 
-        {
-          ...formData,
-          files,
-        }
-    );
+      // ✅ Parse structured JSON fields
+      const parsedFeatures = formData.features
+        ? JSON.parse(formData.features)
+        : [];
+
+      const parsedFacilities = formData.env_facilities
+        ? JSON.parse(formData.env_facilities)
+        : [];
+
+      // ✅ Construct cleaned data object
+      const propertyData = {
+        ...formData,
+        features: parsedFeatures,
+        env_facilities: parsedFacilities,
+        files,
+      };
+
+      logger.info("Property data after parsing:", {
+        ...propertyData,
+        featuresCount: parsedFeatures.length,
+        facilitiesCount: parsedFacilities.length,
+      });
+
+      // ✅ Create property
+      const property = await PropertyService.createProperty(authUser, propertyData);
 
       logger.info("Property created successfully:", property._id);
-      res.status(201).json({ success: true, data: property });
+
+      return res.status(201).json({
+        success: true,
+        data: property,
+      });
     } catch (error: any) {
-      logger.error("Error creating property:", error.message);
-      res.status(400).json({ success: false, message: error.message });
+      logger.error("Error creating property:", error.message, error.stack);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create property",
+      });
     }
   },
 
@@ -133,6 +164,36 @@ const PropertyController = {
       return res.status(500).json({ success: false, message: error.message });
     }
   },
+
+    // Get all properties with pagination & filters
+  async getUserProperties(req: Request, res: Response) {
+    try {
+      const currentUser = req.currentUser as IUser;
+      logger.info("Fetching User properties for user ID:", currentUser._id);
+
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 10;
+      const skip = (page - 1) * limit;
+
+      const properties = await PropertyService.getUserProperties(
+        currentUser,
+        skip,
+        limit
+      );
+
+      logger.info("Nearest Properties fetched successfully:", properties.length);
+      return res.status(200).json({
+        success: true,
+        properties,
+        totalPages: Math.ceil(properties.length / limit),
+      });
+
+    } catch (error: any) {
+      logger.error("Controller Error fetching all properties:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
 
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
