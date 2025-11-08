@@ -1,19 +1,18 @@
 import { v2 as cloudinary } from "cloudinary";
-import streamifier from "streamifier";
+// import streamifier from "streamifier";
+// import logger from "../../config/loggingConfig";
 
-export const uploadToCloudinary = (
+export const uploadToCloudinary = async (
   fileBuffer: Buffer,
   folder: string,
   publicId?: string
 ): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, public_id: publicId },
-      (error, result) => {
-        if (error) reject(error);
-        else if (result) resolve(result.secure_url);
-      }
-    );
-    streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+  const base64 = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`;
+  const result = await cloudinary.uploader.upload(base64, {
+    folder,
+    public_id: publicId,
+    resource_type: "auto",
+    overwrite: true,
   });
+  return result.secure_url;
 };

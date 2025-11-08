@@ -38,17 +38,16 @@ class PropertyService {
 
       // ✅ Step 2: Now upload images using slug
       if (propertyData.files && propertyData.files.length > 0) {
-        const uploadPromises = propertyData.files.map(
-          async (file: Express.Multer.File, index: number) => {
-            return uploadToCloudinary(
-              file.buffer,
-              `propTriz/properties/${savedProperty.category}`,
-              `${savedProperty.slug}-${index + 1}`
-            );
-          }
-        );
-
-        const imageUrls = await Promise.all(uploadPromises);
+        const imageUrls: string[] = [];
+        
+        for (const [index, file] of propertyData.files.entries()) {
+          const url = await uploadToCloudinary(
+            file.buffer,
+            `propTriz/properties/${savedProperty.category}`,
+            `${savedProperty.slug}-${index + 1}`
+          );
+          imageUrls.push(url);
+        }
 
         // ✅ Step 3: Update banner and images
         if (imageUrls.length > 0) {
