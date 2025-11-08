@@ -4,6 +4,7 @@ import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
 import { uploadToCloudinary } from "./misc/image.service";
+import { ListForEnum } from "../models/enums/ListForEnum";
 
 class PropertyService {
   // Create a new property
@@ -20,6 +21,7 @@ class PropertyService {
       // ✅ Create base property object
       const property = new Property({
         ...propertyData,
+        period: propertyData.listed_for === ListForEnum.rent ? propertyData.period : null,
         price: parseFloat(propertyData.price),
         user: authUser._id,
         map_location: {
@@ -32,21 +34,20 @@ class PropertyService {
 
       // ✅ Step 1: Save first to trigger pre-save hook for slug
       const savedProperty = await property.save();
-      logger.info("Property base saved with slug:", savedProperty.slug);
+      logger.info(`Property base saved with slug:, ${savedProperty.slug}`);
 
       // ✅ Step 2: Now upload images using slug
       if (propertyData.files && propertyData.files.length > 0) {
-        const uploadPromises = propertyData.files.map(
-          async (file: Express.Multer.File, index: number) => {
-            return uploadToCloudinary(
-              file.buffer,
-              `propTriz/properties/${savedProperty.category}`,
-              `${savedProperty.slug}-${index + 1}`
-            );
-          }
-        );
-
-        const imageUrls = await Promise.all(uploadPromises);
+        const imageUrls: string[] = [];
+        
+        for (const [index, file] of propertyData.files.entries()) {
+          const url = await uploadToCloudinary(
+            file.buffer,
+            `propTriz/properties/${savedProperty.category}`,
+            `${savedProperty.slug}-${index + 1}`
+          );
+          imageUrls.push(url);
+        }
 
         // ✅ Step 3: Update banner and images
         if (imageUrls.length > 0) {
@@ -59,8 +60,8 @@ class PropertyService {
       logger.info("Property created successfully:", savedProperty._id);
       return savedProperty;
     } catch (error: any) {
-      logger.error("Error in PropertyService.createProperty:", error.message);
-      throw new Error(`Failed to create property: ${error.message}`);
+      logger.error("Error in PropertyService.createProperty:", {error});
+      throw new Error(`Failed to create property: ${error}`);
     }
   }
 
@@ -270,6 +271,19 @@ class PropertyService {
     }
   }
 
+  async deleteUserProperty(propertyId: string, authUser:IUser): Promise<void> {
+    try {
+      const result = await Property.findOneAndDelete({_id: propertyId, user: authUser._id }).exec();
+
+      if (!result) {
+        throw new Error(`Property with ID ${propertyId} not found`);
+      }
+      logger.info('deleted property with id:', propertyId);
+    } catch (error: any) {
+      throw new Error(`Failed to delete property with ID ${propertyId}: ${error.message}`);
+    }
+  }
+
   // Delete a property by its ID
   async deleteProperty(propertyId: string): Promise<void> {
     try {
@@ -278,6 +292,7 @@ class PropertyService {
       if (!result) {
         throw new Error(`Property with ID ${propertyId} not found`);
       }
+      logger.info('deleted property with id:', propertyId);
     } catch (error: any) {
       throw new Error(`Failed to delete property with ID ${propertyId}: ${error.message}`);
     }
