@@ -33,7 +33,8 @@ const propertySchema = new Schema<IProperty>(
     period: {
       type: String,
       enum: RenewalEnum,
-      default: RenewalEnum.yearly,
+      required: false,
+      default: null,
     },
     negotiable: { type: Boolean, default: true, required: true },
     property_terms: { type: String, index: true },

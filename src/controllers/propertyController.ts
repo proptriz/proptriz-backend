@@ -48,11 +48,11 @@ const PropertyController = {
         files,
       };
 
-      logger.info("Property data after parsing:", {
-        ...propertyData,
-        featuresCount: parsedFeatures.length,
-        facilitiesCount: parsedFacilities.length,
-      });
+      // logger.info("Property data after parsing:", {
+      //   ...propertyData,
+      //   featuresCount: parsedFeatures.length,
+      //   facilitiesCount: parsedFacilities.length,
+      // });
 
       // ✅ Create property
       const property = await PropertyService.createProperty(authUser, propertyData);
