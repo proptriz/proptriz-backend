@@ -5,6 +5,7 @@ import { CategoryEnum } from "./enums/CategoryEnum";
 import { RenewalEnum } from "./enums/RenewalEnum";
 import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
 import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
+import { CurrencyEnum } from "./enums/CurrencyEnum";
 
 const propertySchema = new Schema<IProperty>(
   {
@@ -18,6 +19,7 @@ const propertySchema = new Schema<IProperty>(
     },
     address: { type: String, required: true, default: "", index: true },
     price: { type: Number, required: true },
+    currency: { type: String, enum: CurrencyEnum, required: true, default: CurrencyEnum.naira }, 
     listed_for: {
       type: String,
       enum: ListForEnum,
