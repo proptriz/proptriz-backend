@@ -48,11 +48,11 @@ const PropertyController = {
         files,
       };
 
-      logger.info("Property data after parsing:", {
-        ...propertyData,
-        featuresCount: parsedFeatures.length,
-        facilitiesCount: parsedFacilities.length,
-      });
+      // logger.info("Property data after parsing:", {
+      //   ...propertyData,
+      //   featuresCount: parsedFeatures.length,
+      //   facilitiesCount: parsedFacilities.length,
+      // });
 
       // ✅ Create property
       const property = await PropertyService.createProperty(authUser, propertyData);
@@ -213,9 +213,10 @@ const PropertyController = {
   // Delete a property by ID
   async deleteProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to delete property with ID:", req.params.id);
-      const propertyId = req.params.id;
-      await PropertyService.deleteProperty(propertyId);
+      logger.info("Request to delete property with ID:", req.params.pid);
+      const propertyId = req.params.pid;
+      const authUser = req.currentUser as IUser;
+      await PropertyService.deleteUserProperty(propertyId, authUser);
       logger.info("Property deleted successfully:", propertyId);
       res.status(200).json({ success: true, message: "Property deleted successfully." });
     } catch (error: any) {

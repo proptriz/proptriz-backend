@@ -11,6 +11,6 @@ propertyRoutes.get("/nearest-prop/:pid", PropertyController.getNearestProperties
 propertyRoutes.get("/user/listed", verifyToken, PropertyController.getUserProperties);
 propertyRoutes.post("/add", verifyToken, upload.array('images', 5), PropertyController.addProperty);
 propertyRoutes.put("/update/:pid", verifyToken, PropertyController.updateProperty);
-propertyRoutes.delete("/delete/:pid", PropertyController.deleteProperty);
+propertyRoutes.delete("/delete/:pid", verifyToken, PropertyController.deleteProperty);
 
 export default propertyRoutes;

@@ -1,5 +1,6 @@
 import { Document, Types } from "mongoose";
 import { CategoryEnum } from "./models/enums/CategoryEnum";
+import { CurrencyEnum } from "./models/enums/CurrencyEnum";
 
 export interface BaseDocument extends Document {
   _id: Types.ObjectId;
@@ -79,6 +80,7 @@ export interface IProperty extends BaseDocument {
   slug: string;
   address: string; // Location of the property
   price: number; // Price per month
+  currency: CurrencyEnum; // Currency type (e.g. NGN, USD, GBP)
   listed_for: string; // (e.g. "sell"/ "rent")
   category: CategoryEnum; // The class of property (e.g. house, land, shop, office, hotel )
   period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)

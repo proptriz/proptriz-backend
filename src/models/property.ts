@@ -5,6 +5,7 @@ import { CategoryEnum } from "./enums/CategoryEnum";
 import { RenewalEnum } from "./enums/RenewalEnum";
 import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
 import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
+import { CurrencyEnum } from "./enums/CurrencyEnum";
 
 const propertySchema = new Schema<IProperty>(
   {
@@ -18,6 +19,7 @@ const propertySchema = new Schema<IProperty>(
     },
     address: { type: String, required: true, default: "", index: true },
     price: { type: Number, required: true },
+    currency: { type: String, enum: CurrencyEnum, required: true, default: CurrencyEnum.naira }, 
     listed_for: {
       type: String,
       enum: ListForEnum,
@@ -33,7 +35,8 @@ const propertySchema = new Schema<IProperty>(
     period: {
       type: String,
       enum: RenewalEnum,
-      default: RenewalEnum.yearly,
+      required: false,
+      default: null,
     },
     negotiable: { type: Boolean, default: true, required: true },
     property_terms: { type: String, index: true },
