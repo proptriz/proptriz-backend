@@ -3,7 +3,7 @@ import { buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
-import { uploadToCloudinary } from "./misc/image.service";
+import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
 
 class PropertyService {
@@ -273,16 +273,27 @@ class PropertyService {
     }
   }
 
-  async deleteUserProperty(propertyId: string, authUser:IUser): Promise<void> {
+  async deleteUserProperty(propertyId: string, authUser: IUser): Promise<void> {
     try {
-      const result = await Property.findOneAndDelete({_id: propertyId, user: authUser._id }).exec();
+      // ✅ Step 1: Find property first (to access its image URLs)
+      const property = await Property.findOne({ _id: propertyId, user: authUser._id }).exec();
 
-      if (!result) {
-        throw new Error(`Property with ID ${propertyId} not found`);
+      if (!property) {
+        throw new Error(`Property with ID ${propertyId} not found or not owned by user`);
       }
-      logger.info('deleted property with id:', propertyId);
+
+      // ✅ Step 2: Delete images from Cloudinary
+      await deleteFromCloudinary([
+        property.banner,
+        ...(property.images || []),
+      ]);
+
+      // ✅ Step 4: Delete property document
+      await property.deleteOne();
+      logger.info("Deleted property and associated Cloudinary images:", propertyId);
     } catch (error: any) {
-      throw new Error(`Failed to delete property with ID ${propertyId}: ${error.message}`);
+      logger.error("Error deleting property:", error);
+      throw new Error(`Failed to delete property with ID ${propertyId}: ${error}`);
     }
   }
 
