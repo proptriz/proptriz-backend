@@ -7,6 +7,110 @@ import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
 
 class PropertyService {
+
+  async updatePropertyImage(
+    propertyId: string,
+    file: Express.Multer.File,
+    replaceIndex?: number   // optional — if provided, replaces existing image
+  ): Promise<string> {
+    try {
+      // Fetch full Mongoose document (not lean)
+      const property = await Property.findById(propertyId);
+      if (!property) {
+        throw new Error(`Property with ID ${propertyId} not found`);
+      }
+
+      const maxImages = 5;
+
+      // If replacing: ensure index is valid
+      if (replaceIndex !== undefined) {
+        if (replaceIndex < 0 || replaceIndex >= property.images.length) {
+          throw new Error(`Invalid replace index ${replaceIndex}`);
+        }
+      } else {
+        // If uploading new: ensure limit not exceeded
+        if (property.images.length >= maxImages) {
+          throw new Error("Maximum of 5 images allowed for a property");
+        }
+      }
+
+      // Decide the image number (slug-X)
+      const imageNumber =
+        replaceIndex !== undefined ? replaceIndex + 1 : property.images.length + 1;
+
+      // Upload to Cloudinary
+      const imageUrl = await uploadToCloudinary(
+        file.buffer,
+        `properties/${property.category}`,
+        `${property.slug}-${imageNumber}`
+      );
+
+      if (!imageUrl) throw new Error("Image upload failed");
+
+      // === HANDLE REPLACE ===
+      if (replaceIndex !== undefined) {
+        // Delete old image from Cloudinary
+        const oldImage = property.images[replaceIndex];
+        if (oldImage) {
+          await deleteFromCloudinary([oldImage]);
+        }
+
+        // Replace the image
+        property.images[replaceIndex] = imageUrl;
+
+        // If replacing the banner (index 0)
+        if (replaceIndex === 0) {
+          property.banner = imageUrl;
+        }
+      }
+
+      // === HANDLE NEW UPLOAD ===
+      else {
+        logger.info(`adding image with url: ${imageUrl} to property id: ${propertyId}`);
+        property.images.push(imageUrl);
+        if (property.images.length === 1) {
+          property.banner = imageUrl; // first image becomes banner
+        }
+      }
+
+      await property.save();
+      return imageUrl;
+
+    } catch (error: any) {
+      logger.error("Error uploading property image:", error);
+      throw new Error(`Failed to upload property image: ${error.message}`);
+    }
+  }
+
+  async deletePropertyImage(
+    propertyId: string,
+    imageUrl: string
+  ): Promise<IProperty> {
+    try {
+      const property = await Property.findById(propertyId);
+      if (!property) {
+        throw new Error(`Property with ID ${propertyId} not found`);
+      }
+      const imageIndex = property.images.indexOf(imageUrl);
+      if (imageIndex === -1) {
+        throw new Error("Image URL not found in property images");
+      }
+      // Delete from Cloudinary
+      await deleteFromCloudinary([imageUrl]);
+      // Remove from property images array
+      property.images.splice(imageIndex, 1);
+      // If deleted image was banner, update banner
+      if (property.banner === imageUrl) {
+        property.banner = property.images[0] || ""; // set to first image or empty
+      }
+      await property.save();
+      return property;
+    } catch (error: any) {
+      logger.error("Error deleting property image:", { error });
+      throw new Error(`Failed to delete property image: ${error.message}`);
+    }
+  }
+    
   // Create a new property
   async createProperty(authUser: IUser, propertyData: any): Promise<IProperty> {
     try {
@@ -43,8 +147,8 @@ class PropertyService {
         for (const [index, file] of propertyData.files.entries()) {
           const url = await uploadToCloudinary(
             file.buffer,
-            `propTriz/properties/${savedProperty.category}`,
-            `${savedProperty.slug}-${index + 1}`
+            `propTriz/${savedProperty.category}`,
+            `${savedProperty.slug}-${savedProperty.images.length + 1}`
           );
           imageUrls.push(url);
         }

@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import e, { Request, Response } from "express";
 import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
@@ -194,7 +194,6 @@ const PropertyController = {
     }
   },
 
-
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
     try {
@@ -221,6 +220,52 @@ const PropertyController = {
       res.status(200).json({ success: true, message: "Property deleted successfully." });
     } catch (error: any) {
       logger.error("Error deleting property:", error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  async updatePropertyImage(req: Request, res: Response) {
+    try {
+      logger.info("Request to update property image with ID:", req.params.pid);
+      const { property_id, image_index } = req.body;
+      const file = req.file as Express.Multer.File; 
+
+      if (!property_id || !file) {
+        logger.error("No image file or property ID provided.");
+        return res.status(400).json({ success: false, message: "No image file or property ID provided." });
+      }
+      let imageUrl: string;
+
+      if (image_index===undefined || image_index==="") {
+        imageUrl = await PropertyService.updatePropertyImage(property_id, file);
+        
+      } else {
+        imageUrl = await PropertyService.updatePropertyImage(property_id, file, parseInt(image_index, 10));
+      }
+
+      logger.info("Property image updated successfully:", {imageUrl});
+      res.status(200).json({ success: true, image: imageUrl });
+    } catch (error: any) {
+      logger.error("Error updating property image:", error.message);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  async deletePropertyImage(req: Request, res: Response) {
+    try {
+      const { property_id, image_url} = req.body;
+      logger.info("Request to delete property image with ID:", property_id, "Image URL:", image_url);      
+
+      if (!image_url || !property_id) {
+        return res.status(400).json({ success: false, message: "No image URL or property ID provided." });
+      }
+
+      const updatedProperty = await PropertyService.deletePropertyImage(property_id, image_url);
+      logger.info("Property image deleted successfully:", {updatedProperty});
+
+      res.status(200).json({ success: true, property: updatedProperty });
+    } catch (error: any) {
+      logger.error("Error deleting property image:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
