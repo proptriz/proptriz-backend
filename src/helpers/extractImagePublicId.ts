@@ -1,11 +1,17 @@
 export const extractPublicId = (url: string): string | null => {
   try {
-    // Example: https://res.cloudinary.com/demo/image/upload/v12345/propTriz/properties/slug-1.jpg
-    const parts = url.split("/");
-    const folderIndex = parts.findIndex((p) => p === "upload") + 1;
-    const publicIdWithExt = parts.slice(folderIndex).join("/"); // e.g. propTriz/properties/slug-1.jpg
-      return publicIdWithExt.replace(/\.[^/.]+$/, ""); // remove .jpg/.png
-    } catch {
-      return null;
-    }
-  };
+    const cleanUrl = url.split("?")[0];
+    const parts = cleanUrl.split("/");
+
+    const uploadIndex = parts.findIndex((p) => p === "upload");
+    if (uploadIndex === -1) return null;
+
+    // Remove version number e.g. v1760977246
+    const withFolder = parts.slice(uploadIndex + 2).join("/");
+
+    // Remove file extension
+    return withFolder.replace(/\.[^/.]+$/, "");
+  } catch {
+    return null;
+  }
+};

@@ -14,6 +14,7 @@ export const uploadToCloudinary = async (
     resource_type: "auto",
     overwrite: true,
   });
+  logger.info(`Image uploaded to Cloudinary:`, {result});
   return result.secure_url;
 };
 
@@ -23,8 +24,8 @@ export const deleteFromCloudinary = async (imageUrls: string[]): Promise<void> =
 
     const imagePublicIds = imageUrls.map((url) => extractPublicId(url)).filter(Boolean) as string[];
   
-    await cloudinary.api.delete_resources(imagePublicIds, { resource_type: "image" });
-    logger.info(`Deleted ${imagePublicIds.length} images from Cloudinary.`);
+    const res = await cloudinary.api.delete_resources(imagePublicIds, { resource_type: "image" });
+    logger.info(`Deleted ${imagePublicIds.length} images from Cloudinary.`, {res});
     
   } catch (error) {
     logger.error("Error deleting images from Cloudinary:", error);
