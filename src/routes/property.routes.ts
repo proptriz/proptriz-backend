@@ -12,5 +12,7 @@ propertyRoutes.get("/user/listed", verifyToken, PropertyController.getUserProper
 propertyRoutes.post("/add", verifyToken, upload.array('images', 5), PropertyController.addProperty);
 propertyRoutes.put("/update/:pid", verifyToken, PropertyController.updateProperty);
 propertyRoutes.delete("/delete/:pid", verifyToken, PropertyController.deleteProperty);
+propertyRoutes.post("/image/delete", verifyToken, PropertyController.deletePropertyImage);
+propertyRoutes.put("/image/update", verifyToken, upload.single('image'), PropertyController.updatePropertyImage);
 
 export default propertyRoutes;

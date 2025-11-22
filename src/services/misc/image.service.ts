@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
-// import streamifier from "streamifier";
-// import logger from "../../config/loggingConfig";
+import logger from "../../config/loggingConfig";
+import { extractPublicId } from "../../helpers/extractImagePublicId";
 
 export const uploadToCloudinary = async (
   fileBuffer: Buffer,
@@ -14,5 +14,21 @@ export const uploadToCloudinary = async (
     resource_type: "auto",
     overwrite: true,
   });
+  logger.info(`Image uploaded to Cloudinary:`, {result});
   return result.secure_url;
 };
+
+export const deleteFromCloudinary = async (imageUrls: string[]): Promise<void> => {
+  try {
+    if (imageUrls.length === 0) return;
+
+    const imagePublicIds = imageUrls.map((url) => extractPublicId(url)).filter(Boolean) as string[];
+  
+    const res = await cloudinary.api.delete_resources(imagePublicIds, { resource_type: "image" });
+    logger.info(`Deleted ${imagePublicIds.length} images from Cloudinary.`, {res});
+    
+  } catch (error) {
+    logger.error("Error deleting images from Cloudinary:", error);
+  }
+  
+}
