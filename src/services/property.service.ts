@@ -339,6 +339,7 @@ class PropertyService {
             title: 1,
             category: 1,
             price: 1,
+            currency: 1,
             address: 1,
             banner: 1,
             listed_for: 1,
