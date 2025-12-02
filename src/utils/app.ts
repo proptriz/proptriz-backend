@@ -11,6 +11,7 @@ import agentRoutes from "../routes/agent.routes";
 import agentReviewRoutes from "../routes/agentReview.routes";
 import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
+import settingsRoutes from "../routes/userSettings.routes";
 
 dotenv.config();
 
@@ -27,11 +28,12 @@ app.use(requestLogger);
 
 app.use("/api/v1", appRouter);
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/settings", settingsRoutes); 
 app.use('/api/v1/payments', paymentsRouter);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/", homeRoutes);
-app.use("/api/v1/agent", agentRoutes)
-app.use("/api/v1/agent-review", agentReviewRoutes)
+app.use("/api/v1/agent", agentRoutes);
+app.use("/api/v1/agent-review", agentReviewRoutes); 
 
 export default app
