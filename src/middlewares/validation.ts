@@ -109,12 +109,16 @@ export const userSettingsValidations = {
       .optional()
       .trim()
       .matches(/^[\d\s\-\+\(\)]+$/)
-      .withMessage('Invalid phone number format'),
+      .withMessage('Invalid phone number format')
+      .isLength({ min: 10, max: 15 })
+      .withMessage('Phone must be 10-15 numbers'),
     body('whatsapp')
       .optional()
       .trim()
       .matches(/^[\d\s\-\+\(\)]+$/)
-      .withMessage('Invalid whatsapp number format'),
+      .withMessage('Invalid whatsapp number format')
+      .isLength({ min: 10, max: 15 })
+      .withMessage('Phone must be 10-15 numbers'),
     body('brand')
       .optional()
       .trim()
@@ -124,6 +128,8 @@ export const userSettingsValidations = {
       .optional()
       .isObject()
       .withMessage('Social handles must be an object'),
+
+    handleValidationErrors
     // body('language')
     //   .optional()
     //   .isIn(['en', 'es', 'fr', 'de', 'pt'])
@@ -148,14 +154,6 @@ export const userSettingsValidations = {
     //   .optional()
     //   .isBoolean()
     //   .withMessage('Two factor must be a boolean'),
-  ],
-
-  getSettings: [
-    param('userId')
-      .notEmpty()
-      .withMessage('User ID is required')
-      .isMongoId()
-      .withMessage('Invalid user ID'),
   ],
 };
 

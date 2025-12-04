@@ -7,11 +7,12 @@ import { userSettingsValidations } from "../middlewares/validation";
 const settingsRoutes = Router();
 const settingsController = new UserSettingsController()
 
-settingsRoutes.get("/", userSettingsValidations.getSettings, settingsController.getSettings);
+settingsRoutes.get("/", verifyToken, settingsController.getSettings);
 settingsRoutes.post(
-  "/add", 
-  verifyToken, 
-  upload.single('image'), 
+  "/add",
+  verifyToken,
+  upload.single('image'),
+  userSettingsValidations.update, 
   settingsController.addOrUpdateSettings
 );
 
