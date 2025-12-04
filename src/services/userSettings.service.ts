@@ -2,7 +2,7 @@ import UserSettings, { UserSettingsType } from '../models/userSettings';
 import logger from '../config/loggingConfig';
 import AppError from '../utils/errors';
 import User from '../models/user';
-import { uploadToCloudinary } from './misc/image.service';
+import { deleteFromCloudinary, uploadToCloudinary } from './misc/image.service';
 import { IUser } from '../types';
 
 export class UserSettingsService {
@@ -16,31 +16,6 @@ export class UserSettingsService {
       return settings as UserSettingsType | null;
     } catch (error) {
       logger.error('Error fetching user settings', { userId, error });
-      throw error;
-    }
-  }
-
-  async updateUserSettings(
-    userId: string,
-    updates: Partial<UserSettingsType>
-  ): Promise<UserSettingsType> {
-    try {
-      if (!userId) {
-        throw new AppError('User ID is required', 400);
-      }
-      if (!updates || Object.keys(updates).length === 0) {
-        throw new AppError('No updates provided', 400);
-      }
-
-      const settings = await UserSettings.findOneAndUpdate(
-        { user: userId },
-        { $set: updates, updatedAt: new Date() },
-        { new: true, upsert: true, runValidators: true }
-      );
-
-      return settings;
-    } catch (error) {
-      logger.error('Error updating user settings', { userId, error });
       throw error;
     }
   }
@@ -65,12 +40,20 @@ export class UserSettingsService {
     file?: Express.Multer.File
   ): Promise<UserSettingsType> {
     try {
-
       if (!settingsData || Object.keys(settingsData).length === 0) {
         throw new AppError('No updates provided', 400);
       }
 
       if (file) {
+        // Fetch existing settings to get old image
+        const existingSettings = await UserSettings.findOne({ user: authUser._id });
+        
+        // Delete old image if it exists
+        if (existingSettings?.image) {
+          await deleteFromCloudinary([existingSettings.image]);
+        }
+
+        // Upload new image
         const url = await uploadToCloudinary(
           file.buffer,
           `propTriz/user`,
