@@ -7,12 +7,7 @@ export interface BaseDocument extends Document {
 }
 export interface IUser extends Document {
     username: string; // unique identifyer
-    pi_uid: string; // hashed user password
-    fullname?: string; // User Legal Name (e.g. Tony Adeola Ezenwa) (optional)
-    image?: string; // URL to user profile pics (optional)
-    email?: string; // for notification
-    phone?: string; // user phone number (optional)
-    provider?: string; // URLs of reviewer upload (optional)
+    pi_uid: string; // unique identifyer
 };
 
 export interface A2UMetadata { 
@@ -71,7 +66,7 @@ export interface A2UPaymentDataType {
   memo: string
 };
 
-export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
+// export interface UserType extends Pick<IUser, "username"| "fullname" | "email" | "phone"| "image" > {}
 
 export interface IProperty extends BaseDocument {
   id?: string,

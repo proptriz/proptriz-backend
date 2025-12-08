@@ -13,28 +13,6 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: true,
       unique: true,
-    },
-    fullname: {
-      type: String,
-      null: true,
-      required: false,
-    },
-    email: {
-      type: String,
-      unique:true,
-      required: false,
-      lowercase: true
-    },
-    phone: {
-      type: Number,
-      maxlength: 15,
-      required: false,
-      null: true
-    },
-    image: {
-      type: String,
-      required: false,
-      default: ""
     }
   }, { timestamps: true }
 );
