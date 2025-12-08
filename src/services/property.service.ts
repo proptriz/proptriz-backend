@@ -364,9 +364,9 @@ class PropertyService {
     try {
       const updatedProperty = await Property.findByIdAndUpdate(
         propertyId,
-        { ...updateData, updated_at: new Date() },
+        { ...updateData, updatedAt: new Date() },
         { new: true, runValidators: true }
-      ).exec();
+      ).lean().exec();
 
       if (!updatedProperty) {
         throw new Error(`Property with ID ${propertyId} not found`);

@@ -6,11 +6,13 @@ on:
   push:
     branches: 
       - main
+      - staging
       - dev
       - quick-fix
   pull_request:
     branches:
       - main
+      - staging
       - dev
       - quick-fix
 
