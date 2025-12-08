@@ -197,11 +197,12 @@ const PropertyController = {
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to update property with ID:", req.params.id, "Updates:", req.body);
-      const propertyId = req.params.id;
+      logger.info("Request to update property with ID:", req.params.pid, "Updates:", req.body);
+      const propertyId = req.params.pid;
       const updates = req.body;
+      logger.info("property Data to update:", updates);
       const updatedProperty = await PropertyService.updateProperty(propertyId, updates);
-      logger.info("Property updated successfully:", updatedProperty);
+      // logger.info("Property updated successfully:", updatedProperty);
       res.status(200).json({ success: true, data: updatedProperty });
     } catch (error: any) {
       logger.error("Error updating property:", error.message);
