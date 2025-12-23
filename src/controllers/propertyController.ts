@@ -199,11 +199,34 @@ const PropertyController = {
     try {
       logger.info("Request to update property with ID:", req.params.pid, "Updates:", req.body);
       const propertyId = req.params.pid;
-      const updates = req.body;
-      logger.info("property Data to update:", updates);
-      const updatedProperty = await PropertyService.updateProperty(propertyId, updates);
+      const formData = req.body;
+      logger.info("property Data to update:", formData);
+
+      // ✅ Parse structured JSON fields
+      const parsedFeatures = formData.features
+        ? formData.features
+        : [];
+
+      const parsedFacilities = formData.env_facilities
+        ? formData.env_facilities
+        : [];
+
+      const propertyData = {
+        ...formData,
+        map_location: {
+          type: "Point",
+          coordinates: [
+            parseFloat(formData.longitude as string),
+            parseFloat(formData.latitude as string)
+          ],
+        },
+        features: formData.features || [],
+        env_facilities: formData.env_facilities || [],
+      };
+
+      const updatedProperty = await PropertyService.updateProperty(propertyId, propertyData);
       // logger.info("Property updated successfully:", updatedProperty);
-      res.status(200).json({ success: true, data: updatedProperty });
+      res.status(200).json(updatedProperty);
     } catch (error: any) {
       logger.error("Error updating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
