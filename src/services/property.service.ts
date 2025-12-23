@@ -364,7 +364,11 @@ class PropertyService {
     try {
       const updatedProperty = await Property.findByIdAndUpdate(
         propertyId,
-        { ...updateData, updatedAt: new Date() },
+        { ...updateData, 
+          period: updateData.listed_for === ListForEnum.rent ? updateData.period : null,
+          price: parseFloat(updateData.price),
+          updatedAt: new Date() 
+        },
         { new: true, runValidators: true }
       ).lean().exec();
 
