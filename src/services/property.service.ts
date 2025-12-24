@@ -5,6 +5,7 @@ import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
 import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
+import UserSettings, { UserSettingsType } from "../models/userSettings";
 
 class PropertyService {
 
@@ -170,14 +171,24 @@ class PropertyService {
   }
 
   // Get a single property by its ID
-  async getPropertyById(propertyId: string): Promise<IProperty | null> {
+  async getPropertyById(propertyId: string): Promise<{property:IProperty, userDetails: UserSettingsType | null} | null> {
     try {
-      const property = await Property.findById(propertyId).populate('user').lean();
-      if (property) {
-        return property
-      } 
-      return null
-      
+      // populate user with its _id so we can lookup settings by user id
+      const property = await Property.findById(propertyId)
+        .populate('user', 'username _id')
+        .lean();
+
+      if (!property || !property.user) return null;
+
+      // handle both populated user object and raw ObjectId
+      const userId = (property.user as any)?._id ?? property.user;
+
+      const userDetails = await UserSettings.findOne({ user: userId })
+        .select('username image brand email phone whatsapp social_handles -_id')
+        .lean();
+
+      logger.info("fetched owner:", { userDetails });
+      return { property: property as IProperty, userDetails: userDetails as UserSettingsType | null };
     } catch (error: any) {
       throw new Error(`Failed to retrieve property with ID ${propertyId}: ${error.message}`);
     }
