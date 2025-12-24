@@ -77,9 +77,9 @@ const PropertyController = {
     try {
       logger.info("Fetching property with ID:", req.params.pid);
       const propertyId = req.params.pid;
-      const property = await PropertyService.getPropertyById(propertyId);
+      const result = await PropertyService.getPropertyById(propertyId);
       logger.info("Property fetched successfully:");
-      res.status(200).json( property );
+      res.status(200).json( result );
     } catch (error: any) {
       logger.error("Error fetching property by ID:", error.message);
       res.status(404).json({ success: false, message: error.message });
