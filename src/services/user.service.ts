@@ -6,33 +6,37 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const findOrCreateUser = async (currentUser: IUser): Promise<IUser> => {
-  logger.info(`Finding or creating user: ${currentUser.pi_uid} - ${currentUser.username}`);
-  const existingUser = await User.findOne({
-    pi_uid: currentUser.pi_uid,
-    username: currentUser.username
-  }).setOptions({ 
-    readPreference: 'primary' 
-  }).exec();
+  const { pi_uid, username } = currentUser;
 
-  if (existingUser) return existingUser;
+  logger.info(`Authenticating user: pi_uid=${pi_uid}, username=${username}`);
 
-  return User.create({
-    pi_uid: currentUser.pi_uid,
-    username: currentUser.username
-  });
+  return User.findOneAndUpdate(
+    { pi_uid }, // identity key
+    {
+      $setOnInsert: {
+        pi_uid,
+        username
+      }
+    },
+    {
+      new: true,
+      upsert: true,
+      runValidators: true
+    }
+  ).exec();
 };
 
-export const authenticate = async (
-  currentUser: IUser
-): Promise<IUser> => {
+export const authenticate = async (currentUser: IUser): Promise<IUser> => {
   try {
-    const user = await findOrCreateUser(currentUser);
-    return user
+    return await findOrCreateUser(currentUser);
   } catch (error) {
-    logger.error(`Failed to authenticate user: ${ error }`);
+    logger.error(
+      `Authentication failed for pi_uid=${currentUser.pi_uid}: ${String(error)}`
+    );
     throw error;
   }
 };
+
 
 export const getUser = async (pi_uid: string): Promise<IUser | null> => {
   try {
