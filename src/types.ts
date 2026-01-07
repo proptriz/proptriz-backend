@@ -80,9 +80,13 @@ export interface IProperty extends BaseDocument {
   category: CategoryEnum; // The class of property (e.g. house, land, shop, office, hotel )
   period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)
   negotiable: boolean; // (true/false)
+  description: string;
+  duration: number;
+  expired_by: Date;
   property_terms?: string // agent terms and condit
   images: string[]; //Other property images for gallery
   user: Types.ObjectId; //foreign key representing agent that list the property
+  username: string;
   map_location?: {
     type: 'Point';
     coordinates: [number, number];
