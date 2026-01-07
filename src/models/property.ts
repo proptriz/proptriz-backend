@@ -38,10 +38,26 @@ const propertySchema = new Schema<IProperty>(
       required: false,
       default: null,
     },
+    description: {
+      type: String,
+      required: false,
+      default: ""
+    },
+     duration: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 52        
+    },
+    expired_by: {
+      type: Date,
+      required: true,
+    },
     negotiable: { type: Boolean, default: true, required: true },
     property_terms: { type: String, index: true },
     images: { type: [String], default: [] },
     user: { type: SchemaTypes.ObjectId, ref: "User", required: true },
+    username: {type: String, required: true},
     map_location: {
       type: {
         type: String,
