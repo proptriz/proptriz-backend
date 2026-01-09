@@ -1,4 +1,5 @@
 import mongoose, { InferSchemaType, Schema } from "mongoose";
+import { UserTypeEnum } from "./enums/UserType";
 
 const userSettingsSchema = new Schema (
   {
@@ -12,6 +13,12 @@ const userSettingsSchema = new Schema (
       type: String,
       required: true,
       unique: true,
+    },
+    user_type: {
+      type: String,
+      enum: UserTypeEnum,
+      required: true,
+      default: UserTypeEnum.Individual
     },
     image: {
       type: String,

@@ -6,6 +6,7 @@ import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
 import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
 import UserSettings, { UserSettingsType } from "../models/userSettings";
+import { PropertyStatusEnum } from "../models/enums/PropertyStatusEnum";
 
 class PropertyService {
 
@@ -121,14 +122,22 @@ class PropertyService {
       const prop_cord =
         propertyData.latitude && propertyData.longitude
           ? [parseFloat(propertyData.longitude), parseFloat(propertyData.latitude)]
-          : [0, 0];
+          : [9.082, 8.6753];
+
+      // --- Create new item ---
+      const now = new Date(Date.now());
+      const duration = Math.max(Number(propertyData.duration) || 3, 1); //in weeks
+      const expiredBy = new Date(now.getTime() + duration * 7 * 24 * 60 * 60 * 1000);
 
       // ✅ Create base property object
       const property = new Property({
         ...propertyData,
         period: propertyData.listed_for === ListForEnum.rent ? propertyData.period : null,
         price: parseFloat(propertyData.price),
+        duration: duration,
+        expired_by: expiredBy,
         user: authUser._id,
+        username: authUser.username,
         map_location: {
           type: "Point",
           coordinates: prop_cord,
@@ -184,7 +193,7 @@ class PropertyService {
       const userId = (property.user as any)?._id ?? property.user;
 
       const userDetails = await UserSettings.findOne({ user: userId })
-        .select('username image brand email phone whatsapp social_handles -_id')
+        .select('username user_type image brand email phone whatsapp social_handles -_id')
         .lean();
 
       logger.info("fetched owner:", { userDetails });
@@ -206,12 +215,17 @@ class PropertyService {
       // ✅ Merge filters safely
       const searchCriteria = buildHybridSearchCriteria(search_query);
       logger.info("search query:", JSON.stringify(searchCriteria, null, 2));
+      const now = new Date();
 
       const pipeline: PipelineStage[] = [
         {
           $match: {
             ...filter,
             ...searchCriteria, // ✅ Correct merge inside $match
+            status: PropertyStatusEnum.available, // or PropertyStatus.ACTIVE
+            expired_by: {
+              $gt: now, // non-expired listings only
+            },
           },
         },
         { $sort: { createdAt: -1 } },
@@ -259,6 +273,8 @@ class PropertyService {
     limit: number = 4
   ): Promise<any[]> {
     try {
+      const now = new Date();
+
       // 1️⃣ Find the property to get its coordinates
       const targetProperty = await Property.findById(propertyId).select("map_location").lean();
 
@@ -276,7 +292,12 @@ class PropertyService {
             distanceField: "distance",
             spherical: true,
             key: "map_location",
-            query: { _id: { $ne: targetProperty._id } }, // exclude itself
+
+            query: { 
+              _id: { $ne: targetProperty._id },
+              status: PropertyStatusEnum.available,
+              expired_by: { $gt: now }, 
+            }, // exclude itself and return only available, non-expired properties
           },
         },
         { $sort: { distance: 1 } },
@@ -354,6 +375,7 @@ class PropertyService {
             address: 1,
             banner: 1,
             listed_for: 1,
+            expired_by: 1,
             period: 1,
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
@@ -373,11 +395,31 @@ class PropertyService {
   // Update a property by its ID
   async updateProperty(propertyId: string, updateData: UpdateQuery<IProperty>): Promise<IProperty | null> {
     try {
+      // logger.info("update data: ", {updateData})
+      const property = await Property.findById(propertyId).exec()
+
+      if (!property) {
+        throw new Error("Property not found");
+      }
+
+      let expiredBy = property.expired_by;
+      let duration = property.duration;
+      const now = new Date();
+
+      // only change expired_by of expired expired property
+      if (updateData.duration !== undefined && expiredBy < now) {
+        const durationWeeks = Math.max(Number(updateData.duration) || 3, 1); // min 1 week
+        expiredBy = new Date(now.getTime() + durationWeeks * 7 * 24 * 60 * 60 * 1000);
+        duration = durationWeeks;
+      }
+
       const updatedProperty = await Property.findByIdAndUpdate(
         propertyId,
         { ...updateData, 
           period: updateData.listed_for === ListForEnum.rent ? updateData.period : null,
           price: parseFloat(updateData.price),
+          duration: duration,
+          expired_by: expiredBy,
           updatedAt: new Date() 
         },
         { new: true, runValidators: true }

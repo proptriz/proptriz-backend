@@ -1,8 +1,8 @@
-import e, { Request, Response } from "express";
+import { Request, Response } from "express";
 import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
-// import dropCollection from "../../scripts/dropTable"
+// import {populateUsertype} from "../../scripts/propMigrations"
 
 const PropertyController = {
   
@@ -119,6 +119,7 @@ const PropertyController = {
       const limit = parseInt(req.query.limit as string, 10) || 10;
       const skip = (page - 1) * limit;
 
+      // await populateUsertype()
       const properties = await PropertyService.getProperties(
         skip,
         limit,
