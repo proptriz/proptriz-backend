@@ -15,29 +15,12 @@ import settingsRoutes from "../routes/userSettings.routes";
 
 dotenv.config();
 
-if (process.env.CORS_ORIGIN_URL) {
-  throw new Error("CORS_ORIGIN_URL is not set");
-}
-
-const allowedOrigins = process.env.CORS_ORIGIN_URL
-  ?.split(",")
-  .map(origin => origin.trim());
-
 const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors({
-    origin: (origin, callback) => {
-    // allow non-browser requests (no origin header)
-    if (!origin) return callback(null, true);  
-
-    if (allowedOrigins?.includes(origin)) {
-      return callback(null, true);
-    }  
-
-    return callback(new Error(`CORS blocked: ${origin} not allowed`));
-  },
+    origin: process.env.CORS_ORIGIN_URL,
   credentials: true
 }));
 app.use(cookieParser());
