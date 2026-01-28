@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, param, validationResult } from 'express-validator';
+import { RatingScaleEnum } from '../models/enums/RatingScaleEnum';
+import mongoose from 'mongoose';
 
 // Middleware to handle validation errors
 export const handleValidationErrors = (
@@ -105,6 +107,7 @@ export const userSettingsValidations = {
       .isEmail()
       .withMessage('Invalid email format')
       .normalizeEmail(),
+      
     body('phone')
       .optional()
       .trim()
@@ -112,6 +115,7 @@ export const userSettingsValidations = {
       .withMessage('Invalid phone number format')
       .isLength({ min: 10, max: 15 })
       .withMessage('Phone must be 10-15 numbers'),
+
     body('whatsapp')
       .optional()
       .trim()
@@ -119,42 +123,99 @@ export const userSettingsValidations = {
       .withMessage('Invalid whatsapp number format')
       .isLength({ min: 10, max: 15 })
       .withMessage('Phone must be 10-15 numbers'),
+
     body('brand')
       .optional()
       .trim()
       .isLength({ max: 100 })
       .withMessage('Brand name must be at most 100 characters'),
+      
     body('social_handles')
       .optional()
       .isObject()
       .withMessage('Social handles must be an object'),
 
     handleValidationErrors
-    // body('language')
-    //   .optional()
-    //   .isIn(['en', 'es', 'fr', 'de', 'pt'])
-    //   .withMessage('Unsupported language'),
-    // body('timezone')
-    //   .optional()
-    //   .isString()
-    //   .withMessage('Timezone must be a string'),
-    // body('notifications.email')
-    //   .optional()
-    //   .isBoolean()
-    //   .withMessage('Email notification preference must be a boolean'),
-    // body('notifications.sms')
-    //   .optional()
-    //   .isBoolean()
-    //   .withMessage('SMS notification preference must be a boolean'),
-    // body('darkMode')
-    //   .optional()
-    //   .isBoolean()
-    //   .withMessage('Dark mode must be a boolean'),
-    // body('twoFactorEnabled')
-    //   .optional()
-    //   .isBoolean()
-    //   .withMessage('Two factor must be a boolean'),
+    
   ],
+};
+
+const ratingValues = Object.values(RatingScaleEnum).filter(
+  v => typeof v === "number"
+);
+
+export const reviewValidations = {
+  add: [
+    // Property ID
+    body("property_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Property ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid property ID"),
+
+    // Rating
+    body("rating")
+      .exists({ checkFalsy: true })
+      .withMessage("Rating is required")
+      .isInt()
+      .withMessage("Rating must be an integer")
+      .custom(value => ratingValues.includes(Number(value)))
+      .withMessage(`Rating must be one of: ${ratingValues.join(", ")}`),
+
+    // Comment (optional)
+    body("comment")
+      .optional()
+      .trim()
+      .isLength({ max: 1025 })
+      .withMessage("Comment must not exceed 150 characters"),
+
+    // Images (optional)
+    body("image.*")
+      .optional()
+      .isString()
+      .withMessage("Each image must be a string URL")
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage("Image URL too long"),
+
+    handleValidationErrors
+  ],
+
+  getPropertyReview: [
+    param("property_id", "review_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Property ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid property ID"),
+  ]
+};
+
+export const replyValidations = {
+  add: [
+    // Review ID
+    body("review_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Review ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid review ID"),
+    
+    // Comment (optional)
+    body("comment")
+      .optional()
+      .trim()
+      .isLength({ max: 1025 })
+      .withMessage("Comment must not exceed 150 characters"),
+
+    handleValidationErrors
+  ],
+
+  getPropertyReview: [
+    param("property_id", "review_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Property ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid property ID"),
+  ]
 };
 
 export const validateUserSettings = [

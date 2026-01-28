@@ -17,7 +17,7 @@ const userSettingsSchema = new Schema (
     user_type: {
       type: String,
       enum: UserTypeEnum,
-      required: true,
+      required: false,
       default: UserTypeEnum.Individual
     },
     image: {
@@ -37,13 +37,13 @@ const userSettingsSchema = new Schema (
       lowercase: true
     },
     phone: {
-      type: Number,
+      type: String,
       maxlength: 15,
       required: false,
       null: true
     },
     whatsapp: {
-      type: Number,
+      type: String,
       maxlength: 15,
       required: false,
       null: true

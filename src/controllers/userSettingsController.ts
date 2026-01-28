@@ -1,14 +1,9 @@
 import { Request, Response } from 'express';
-import { UserSettingsService } from '../services/userSettings.service';
+import * as userSettingsService from '../services/userSettings.service';
 import logger from '../config/loggingConfig';
 import { IUser } from '../types';
 
 export class UserSettingsController {
-  private userSettingsService: UserSettingsService;
-
-  constructor() {
-    this.userSettingsService = new UserSettingsService();
-  }
 
   getSettings = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -18,7 +13,7 @@ export class UserSettingsController {
         return;
       }
 
-      const settings = await this.userSettingsService.getUserSettings(userId);
+      const settings = await userSettingsService.getUserSettings(userId);
       res.status(200).json(settings);
     } catch (error) {
       this.handleError(error, res);
@@ -31,9 +26,9 @@ export class UserSettingsController {
 
       const file = req.file as Express.Multer.File | undefined;
       const formData = req.body;
-      logger.info('Received addOrUpdateSettings request', { userId: userId._id, formData });
+      // logger.info('Received addOrUpdateSettings request', { userId: userId._id, formData });
 
-      const settings = await this.userSettingsService.addOrUpdateUserSettings(
+      const settings = await userSettingsService.addOrUpdateUserSettings(
         userId,
         formData,
         file
@@ -46,7 +41,7 @@ export class UserSettingsController {
   };
 
   private handleError(error: unknown, res: Response): void {
-    logger.error('UserSettingsController error:', { error });
+    // logger.error('UserSettingsController error:', { error });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
