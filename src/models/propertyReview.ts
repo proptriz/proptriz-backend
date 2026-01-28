@@ -1,44 +1,32 @@
-import mongoose, { Schema, SchemaTypes } from "mongoose";
-import { IPropertyReview } from "../types";
-import User from "./user";
+import mongoose, { InferSchemaType, Schema, SchemaTypes } from "mongoose";
 import Property from "./property";
 import { RatingScaleEnum } from "./enums/RatingScaleEnum";
+import UserSettings from "./userSettings";
 
-const propertyReviewSchema = new Schema<IPropertyReview>(
+const propertyReviewSchema = new Schema(
   {
-    review_giver: {
-      type: SchemaTypes.ObjectId,
-      ref: User,
-      required: true
-    },
-    property: {
-      type: SchemaTypes.ObjectId,
-      ref: Property,
-      required: true
-    },
-    images: {
-      type: [String],
-      default: [""],
-      required: false
-    },
+    sender: { type: SchemaTypes.ObjectId, ref: UserSettings, required: true },
+    property: { type: SchemaTypes.ObjectId, ref: Property, required: true },
+
+    image: { type: String, default: "" },
+
     rating: {
       type: Number,
-      enum: Object.values(RatingScaleEnum).filter(value => typeof value === 'number'),
-      required: true,
+      enum: Object.values(RatingScaleEnum).filter(v => typeof v === "number"),
+      required: true
     },
-    comment: {
-      type: String,
-      required: false,
-      default: ""
-    },
-    reply_review_id: {
-      type: SchemaTypes.ObjectId,
-      required: false,
-      default: ""
-    }
-  }, { timestamps: true }
+
+    comment: { type: String, default: "" },
+
+    reply_count: { type: Number, default: 0 } 
+  },
+  { timestamps: true }
 );
 
-const PropertyReview = mongoose.model<IPropertyReview>("PropertyReview", propertyReviewSchema);
+propertyReviewSchema.index({ sender: 1, createdAt: -1, _id: -1 });
+propertyReviewSchema.index({ property: 1, createdAt: -1, _id: -1 });
+
+export type PropertyReviewType = InferSchemaType<typeof propertyReviewSchema>
+const PropertyReview = mongoose.model("Property-Review", propertyReviewSchema);
 
 export default PropertyReview;

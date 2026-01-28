@@ -2,13 +2,12 @@ import User from "../models/user";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
 import dotenv from "dotenv";
+import UserSettings from "../models/userSettings";
 
 dotenv.config();
 
 const findOrCreateUser = async (currentUser: IUser): Promise<IUser> => {
   const { pi_uid, username } = currentUser;
-
-  logger.info(`Authenticating user: pi_uid=${pi_uid}, username=${username}`);
 
   return User.findOneAndUpdate(
     { pi_uid }, // identity key
@@ -23,12 +22,39 @@ const findOrCreateUser = async (currentUser: IUser): Promise<IUser> => {
       upsert: true,
       runValidators: true
     }
-  ).exec();
+  ).lean().exec();
 };
 
-export const authenticate = async (currentUser: IUser): Promise<IUser> => {
+export const authenticate = async (currentUser: IUser): Promise<IUser | null> => {
   try {
-    return await findOrCreateUser(currentUser);
+    const authUser = await findOrCreateUser(currentUser);
+
+    if (!authUser._id) {
+      return null
+    }
+
+    // const existingSettings = await UserSettings.exists({username: authUser.username}).exec();
+
+    // if (!existingSettings?._id) {
+    //   await UserSettings.create({
+    //     username: authUser.username,
+    //     user: authUser._id
+    //   })
+    // }
+
+    await UserSettings.findOneAndUpdate(
+      { user: authUser._id },
+      {
+        username: authUser.username,
+        user: authUser._id
+      },
+      {
+        upsert: true,
+        new: false
+      }
+    );
+
+    return authUser
   } catch (error) {
     logger.error(
       `Authentication failed for pi_uid=${currentUser.pi_uid}: ${String(error)}`

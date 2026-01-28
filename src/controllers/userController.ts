@@ -10,6 +10,9 @@ export const authenticateUser = async (req: Request, res: Response) => {
 
   try {
     const user = await UserService.authenticate(auth.user);
+
+    if (!user) throw new Error("Error finding or creating a user")
+
     const token = jwtHelper.generateUserToken(user);
     const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
 
@@ -19,9 +22,10 @@ export const authenticateUser = async (req: Request, res: Response) => {
       user: user,
       token,
     });
-  } catch (error) {
+
+  } catch (error: any) {
     logger.error('Failed to authenticate user:', error);
-    return res.status(500).json({ message: 'An error occurred while authenticating user; please try again later' });
+    return res.status(500).json({ message: error.message || 'An error occurred while authenticating user; please try again later' });
   }
 };
 

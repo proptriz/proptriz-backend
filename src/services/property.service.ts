@@ -316,6 +316,7 @@ class PropertyService {
             id: "$_id",
             _id: 0,
             title: 1,
+            currency: 1,
             price: 1,
             category: 1,
             address: 1,

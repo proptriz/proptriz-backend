@@ -83,7 +83,8 @@ export interface IProperty extends BaseDocument {
   description: string;
   duration: number;
   expired_by: Date;
-  property_terms?: string // agent terms and condit
+  average_rating: number;
+  review_count: number;
   images: string[]; //Other property images for gallery
   user: Types.ObjectId; //foreign key representing agent that list the property
   username: string;
@@ -111,15 +112,6 @@ export interface IProperty extends BaseDocument {
     };
     status: string; // (available, unavilable)
     social_handles: Types.Map<string>;
-  };
-
-  export interface IPropertyReview extends Document {
-    rating: number; // Rating score (0.0 to 5.0)
-    comment?: string; // user review text (optional)
-    review_giver: Types.ObjectId; // Foreing key referencing userId
-    property: Types.ObjectId; // Foreing key referencing property under review
-    images?: string[]; // URLs of reviewer upload (optional)
-    reply_review_id: Types.ObjectId; // Foreign id ref to review
   };
 
   export interface IAgentReview extends Document {
