@@ -23,6 +23,9 @@ const propertyReviewSchema = new Schema(
   { timestamps: true }
 );
 
+propertyReviewSchema.index({ sender: 1, createdAt: -1, _id: -1 });
+propertyReviewSchema.index({ property: 1, createdAt: -1, _id: -1 });
+
 export type PropertyReviewType = InferSchemaType<typeof propertyReviewSchema>
 const PropertyReview = mongoose.model("Property-Review", propertyReviewSchema);
 

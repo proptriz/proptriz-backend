@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as PropertyReviewController from "../controllers/propertyReviewController"
 import { verifyToken } from "../middlewares/verifyToken";
-import { reviewValidations } from "../middlewares/validation";
+import { replyValidations, reviewValidations } from "../middlewares/validation";
 import upload from "../utils/multer";
 
 const propertyReviewRoutes = Router();
@@ -21,9 +21,28 @@ propertyReviewRoutes.get(
 );
 
 propertyReviewRoutes.get(
-  "/:review_id", 
+  "/single/:review_id", 
   reviewValidations.getPropertyReview,
   PropertyReviewController.getSingleReview
+);
+
+propertyReviewRoutes.get(
+  "/user", 
+  reviewValidations.getPropertyReview,
+  PropertyReviewController.getUserReviews
+);
+
+propertyReviewRoutes.post(
+  "/reply/add", 
+  verifyToken, 
+  replyValidations.add,
+  PropertyReviewController.addReply
+);
+
+propertyReviewRoutes.get(
+  "/reply",
+  reviewValidations.getPropertyReview,
+  PropertyReviewController.getReplies
 );
 
 export default propertyReviewRoutes;

@@ -190,6 +190,34 @@ export const reviewValidations = {
   ]
 };
 
+export const replyValidations = {
+  add: [
+    // Review ID
+    body("review_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Review ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid review ID"),
+    
+    // Comment (optional)
+    body("comment")
+      .optional()
+      .trim()
+      .isLength({ max: 1025 })
+      .withMessage("Comment must not exceed 150 characters"),
+
+    handleValidationErrors
+  ],
+
+  getPropertyReview: [
+    param("property_id", "review_id")
+      .exists({ checkFalsy: true })
+      .withMessage("Property ID is required")
+      .custom(value => mongoose.Types.ObjectId.isValid(value))
+      .withMessage("Invalid property ID"),
+  ]
+};
+
 export const validateUserSettings = [
   body('theme').optional().isIn(['light', 'dark']),
   body('language').optional().isString().trim(),

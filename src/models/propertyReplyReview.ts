@@ -30,7 +30,8 @@ const PropertyReviewReplySchema = new Schema(
           seen_at: { type: Date, default: Date.now }
         }
       ],
-      default: []
+      default: [],
+      required: false
     }
   },
   { timestamps: true }

@@ -3,6 +3,7 @@ import { IUser } from "../types";
 import * as PropertyReviewService from "../services/propertyReview.service";
 import logger from "../config/loggingConfig";
 import { PropertyReviewType } from "../models/propertyReview";
+import { PropertyReplyReviewType } from "../models/propertyReplyReview";
 
 // get review by ID
 export const getSingleReview = async (req: Request, res: Response) => {
@@ -69,12 +70,28 @@ export const addReview = async (req:Request, res:Response) => {
   }
 }
 
+export const getUserReviews = async (req: Request, res: Response) => {
+  try {
+    logger.info("Fetching user reviews");
+    const currentUser = req.currentUser as IUser;
+    const cursor = req.query.cursor? req.query.cursor as string : undefined;
+
+    const reviews = await PropertyReviewService.getUserReviews(currentUser, cursor);
+    logger.info("User reviews fetched successfully:");
+    
+    res.status(200).json( reviews );
+  } catch (error: any) {
+    logger.error("Error fetching user reviews:", error.message);
+    res.status(404).json({ success: false, message: error.message });
+  }
+}
+
 export const getReplies = async (req:Request, res: Response) => {
   try {
-    const {reviewId, cursor} = req.query as any;
+    const {review_id, cursor} = req.query as any;
 
-    const review_id = reviewId as string;
-    const {replies, nextCursor} = await PropertyReviewService.getReplies(review_id, cursor);
+    const reviewId = review_id as string;
+    const {replies, nextCursor} = await PropertyReviewService.getReplies(reviewId, cursor);
 
     return res.status(200).json({replies, cursor: nextCursor })
     
@@ -87,8 +104,12 @@ export const getReplies = async (req:Request, res: Response) => {
 export const addReply = async (req:Request, res:Response) => {
   try {
     const currentUser = req.currentUser as IUser;
-    
-    const {replyData} = req.body;
+    const {review_id, comment} = req.body;
+
+    const replyData = {
+      review: review_id,
+      comment
+    } as PropertyReplyReviewType;
 
     const result = await PropertyReviewService.addReply(currentUser, replyData);
 
@@ -96,7 +117,7 @@ export const addReply = async (req:Request, res:Response) => {
     return res.status(200).json(result);
 
   } catch (error:any){
-    logger.error("add review for property error: ", error.message)
-    return res.status(400).json({message: "error giving review to property"})
+    logger.error("add reply to review error: ", error.message)
+    return res.status(400).json({message: "error giving reply to review"})
   }
 }
