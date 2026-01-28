@@ -12,15 +12,14 @@ import agentReviewRoutes from "../routes/agentReview.routes";
 import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
 import settingsRoutes from "../routes/userSettings.routes";
-import { env } from "./env";
 
 dotenv.config();
 
-if (env.CORS_ORIGIN_URL) {
+if (process.env.CORS_ORIGIN_URL) {
   throw new Error("CORS_ORIGIN_URL is not set");
 }
 
-const allowedOrigins = env.CORS_ORIGIN_URL
+const allowedOrigins = process.env.CORS_ORIGIN_URL
   ?.split(",")
   .map(origin => origin.trim());
 
