@@ -19,11 +19,11 @@ if (!process.env.CORS_ORIGIN_URL) {
   throw new Error("CORS_ORIGIN_URL is not set");
 }
 
+const normalize = (u: string) => u.replace(/\/$/, "");
+
 const allowedOrigins = process.env.CORS_ORIGIN_URL!
   .split(",")
   .map(o => normalize(o.trim()));
-
-const normalize = (u: string) => u.replace(/\/$/, "");
 
 const app = express();
 
