@@ -89,42 +89,75 @@ const PropertyController = {
   // Get all properties with pagination & filters
   async getAllProperties(req: Request, res: Response) {
     try {
-      const { query, category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
+      const {
+        query,
+        category,
+        listed_for,
+        min_price,
+        max_price,
+        ne_lat,
+        ne_lng,
+        sw_lat,
+        sw_lng,
+        page = "1",
+        limit = "10",
+      } = req.query;
 
-      let boundsFilter: any = {};
-      const searchQuery = query?.toString().trim() || '';
-
-      // ✅ Build bounds filter correctly
-      if (category || (ne_lat && ne_lng && sw_lat && sw_lng)) {
-        boundsFilter = {
-          ...(category && { category }),
-          ...(ne_lat &&
-            ne_lng &&
-            sw_lat &&
-            sw_lng && {
-              map_location: {
-                $geoWithin: {
-                  $box: [
-                    [parseFloat(sw_lng as string), parseFloat(sw_lat as string)], // bottom-left
-                    [parseFloat(ne_lng as string), parseFloat(ne_lat as string)], // top-right
-                  ],
-                },
-              },
-            }),
-        };
-      }
+      const searchQuery = query?.toString().trim() || "";
 
       // Pagination
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 10;
-      const skip = (page - 1) * limit;
+      const pageNum = Math.max(parseInt(page as string, 10) || 1, 1);
+      const limitNum = Math.min(parseInt(limit as string, 10) || 10, 100);
+      const skip = (pageNum - 1) * limitNum;
+
+      /* ---------------- Build Mongo Filter ---------------- */
+
+      const propertyFilter: any = {};
+
+      // ✅ Category
+      if (category && category !== "") {
+        propertyFilter.category = category;
+      }
+
+      // ✅ Listed For
+      if (listed_for && listed_for !== "all") {
+        propertyFilter.listed_for = listed_for;
+      }
+
+      // ✅ Price Range
+      const minPrice = min_price ? Number(min_price) : null;
+      const maxPrice = max_price ? Number(max_price) : null;
+
+      if (minPrice != null || maxPrice != null) {
+        propertyFilter.price = {};
+
+        if (minPrice != null && !Number.isNaN(minPrice)) {
+          propertyFilter.price.$gte = minPrice;
+        }
+
+        if (maxPrice != null && !Number.isNaN(maxPrice)) {
+          propertyFilter.price.$lte = maxPrice;
+        }
+      }
+
+      // ✅ Geo Bounds Filter
+      if (ne_lat && ne_lng && sw_lat && sw_lng) {
+        propertyFilter.map_location = {
+          $geoWithin: {
+            $box: [
+              [parseFloat(sw_lng as string), parseFloat(sw_lat as string)],
+              [parseFloat(ne_lng as string), parseFloat(ne_lat as string)],
+            ],
+          },
+        };
+      }
 
       // await populateUsertype()
       const properties = await PropertyService.getProperties(
         skip,
-        limit,
+        limitNum,
         searchQuery,
-        boundsFilter
+        propertyFilter
       );
 
       logger.info("Properties fetched successfully:", properties.length);
@@ -132,7 +165,7 @@ const PropertyController = {
         success: true,
         properties,
         currentPage: page,
-        totalPages: Math.ceil(properties.length / limit),
+        totalPages: Math.ceil(properties.length / limitNum),
       });
     } catch (error: any) {
       logger.error("Controller Error fetching all properties:", error.message || error);
