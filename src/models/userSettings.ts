@@ -12,7 +12,7 @@ const userSettingsSchema = new Schema (
     username: {
       type: String,
       required: true,
-      unique: true,
+      unique: false,
     },
     user_type: {
       type: String,

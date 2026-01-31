@@ -137,7 +137,7 @@ class PropertyService {
         duration: duration,
         expired_by: expiredBy,
         user: authUser._id,
-        username: authUser.username,
+        username: authUser.display_name,
         map_location: {
           type: "Point",
           coordinates: prop_cord,

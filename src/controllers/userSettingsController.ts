@@ -7,7 +7,7 @@ export class UserSettingsController {
 
   getSettings = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userId = req.currentUser?._id as string;
+      const userId = req.currentUser?._id.toString() as string;
       if (!userId) {
         res.status(401).json({ error: 'Unauthorized' });
         return;

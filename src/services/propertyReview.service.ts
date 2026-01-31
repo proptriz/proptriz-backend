@@ -26,7 +26,7 @@ export async function addReview(
       const url = await uploadToCloudinary(
         file.buffer,
         `propTriz/review`,
-        `${authUser.username}`
+        `${authUser.display_name}`
       );
       reviewData.image = url;
     }

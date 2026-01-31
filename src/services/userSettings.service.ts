@@ -55,7 +55,7 @@ export async function addOrUpdateUserSettings(
       const url = await uploadToCloudinary(
         file.buffer,
         `propTriz/user`,
-        `${authUser.username}`
+        `${authUser.display_name}`
       );
       settingsData.image = url;
     }
