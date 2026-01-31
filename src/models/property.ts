@@ -53,16 +53,6 @@ const propertySchema = new Schema<IProperty>(
       type: Date,
       required: true,
     },
-    average_rating: {
-      type: Number,
-      required: false,
-      default: 5.0,
-    },
-    review_count: {
-      type: Number,
-      required: false,
-      default: 0,
-    },
     negotiable: { type: Boolean, default: true, required: true },
     images: { type: [String], default: [] },
     user: { type: SchemaTypes.ObjectId, ref: "User", required: true },

@@ -17,7 +17,7 @@ const userSettingsSchema = new Schema (
     user_type: {
       type: String,
       enum: UserTypeEnum,
-      required: false,
+      required: true,
       default: UserTypeEnum.Individual
     },
     image: {

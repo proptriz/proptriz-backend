@@ -83,8 +83,7 @@ export interface IProperty extends BaseDocument {
   description: string;
   duration: number;
   expired_by: Date;
-  average_rating: number;
-  review_count: number;
+  property_terms?: string // agent terms and condit
   images: string[]; //Other property images for gallery
   user: Types.ObjectId; //foreign key representing agent that list the property
   username: string;
