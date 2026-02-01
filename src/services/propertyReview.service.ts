@@ -406,6 +406,12 @@ export async function addReply(
 
     const reviewReply = await newReply.save();
 
+    // Update reply count in PropertyReview
+    await PropertyReview.findByIdAndUpdate(
+      replyData.review,
+      { $inc: { reply_count: 1 } }
+    ).exec();
+
     if (!reviewReply) {
       throw new Error("Error adding new review")
     }
