@@ -53,8 +53,17 @@ const propertySchema = new Schema<IProperty>(
       type: Date,
       required: true,
     },
+    average_rating: {
+      type: Number,
+      required: false,
+      default: 5.0,
+    },
+    review_count: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
     negotiable: { type: Boolean, default: true, required: true },
-    property_terms: { type: String, index: true },
     images: { type: [String], default: [] },
     user: { type: SchemaTypes.ObjectId, ref: "User", required: true },
     username: {type: String, required: true},
@@ -84,11 +93,19 @@ const propertySchema = new Schema<IProperty>(
 );
 
 // ✅ Separate text and geo indexes
+propertySchema.index({ 
+  category: 1, 
+  listed_for: 1, 
+  price: 1 
+});
+
 propertySchema.index({
   title: "text",
   address: "text",
-  property_terms: "text",
+  description: "text",
 });
+
+propertySchema.index({ user: 1 });
 
 propertySchema.index({ map_location: "2dsphere" });
 

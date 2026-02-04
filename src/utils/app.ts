@@ -30,14 +30,14 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      if (allowedOrigins.includes(normalize(origin))) {
-        return cb(null, true);
-      }
-      return cb(new Error(`CORS blocked: ${origin}`));
-    },
-    credentials: true
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(normalize(origin))) {
+      return cb(null, true);
+    }
+    return cb(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true
 }));
 app.use(cookieParser());
 app.use(requestLogger);
