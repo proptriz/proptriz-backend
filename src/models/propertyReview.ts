@@ -5,8 +5,8 @@ import UserSettings from "./userSettings";
 
 const propertyReviewSchema = new Schema(
   {
-    sender: { type: SchemaTypes.ObjectId, ref: UserSettings, required: true },
-    property: { type: SchemaTypes.ObjectId, ref: Property, required: true },
+    sender: { type: SchemaTypes.ObjectId, ref: "User-Settings", required: true },
+    property: { type: SchemaTypes.ObjectId, ref: "Property", required: true },
 
     image: { type: String, default: "" },
 

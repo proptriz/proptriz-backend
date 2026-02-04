@@ -105,6 +105,8 @@ propertySchema.index({
   description: "text",
 });
 
+propertySchema.index({ user: 1 });
+
 propertySchema.index({ map_location: "2dsphere" });
 
 // 🌀 Pre-save hook for unique slug

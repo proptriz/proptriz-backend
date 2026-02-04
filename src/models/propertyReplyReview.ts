@@ -1,13 +1,10 @@
 import mongoose, { InferSchemaType, Schema, SchemaTypes } from "mongoose";
-import User from "./user";
-import UserSettings from "./userSettings";
-import PropertyReview from "./propertyReview";
 
 const PropertyReviewReplySchema = new Schema(
   {
     review: {
       type: SchemaTypes.ObjectId,
-      ref: PropertyReview,
+      ref: "Property-Review",
       index: true,
       required: true
     },
@@ -19,14 +16,14 @@ const PropertyReviewReplySchema = new Schema(
 
     reply_from: {
       type: SchemaTypes.ObjectId,
-      ref: UserSettings,
+      ref: "User-Settings",
       required: true
     },
 
     seen_by: {
       type: [
         {
-          user: { type: SchemaTypes.ObjectId, ref: UserSettings },
+          user: { type: SchemaTypes.ObjectId, ref: "User-Settings" },
           seen_at: { type: Date, default: Date.now }
         }
       ],
