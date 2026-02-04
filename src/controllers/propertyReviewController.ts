@@ -74,14 +74,15 @@ export const getUserReviews = async (req: Request, res: Response) => {
   try {
     logger.info("Fetching user reviews");
     const currentUser = req.currentUser as IUser;
-    const cursor = req.query.cursor? req.query.cursor as string : undefined;
+    const sentCursor = req.query.sent_cursor? req.query.sent_cursor as string : undefined;
+    const receivedCursor = req.query.received_cursor? req.query.received_cursor as string : undefined;
 
-    const reviews = await PropertyReviewService.getUserReviews(currentUser, cursor);
+    const reviews = await PropertyReviewService.getUserReviews(currentUser, sentCursor, receivedCursor);
     logger.info("User reviews fetched successfully:");
     
     res.status(200).json( reviews );
   } catch (error: any) {
-    logger.error("Error fetching user reviews:", error.message);
+    logger.error("Error fetching user reviews:", error);
     res.status(404).json({ success: false, message: error.message });
   }
 }
