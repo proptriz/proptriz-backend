@@ -231,15 +231,7 @@ class PropertyService {
         { $sort: { createdAt: -1 } },
         { $skip: skip },
         { $limit: pageSize },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: "$user" },
+        
         {
           $project: {
             id: "$_id",
@@ -252,9 +244,9 @@ class PropertyService {
             listed_for: 1,
             currency: 1,
             period: 1,
+            average_rating: 1,
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-            "user.username": 1,
           },
         },
       ];
