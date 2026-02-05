@@ -27,14 +27,15 @@ const userSettingsSchema = new Schema (
     },
     brand: {
       type: String,
-      null: true,
+      default: "",
       required: false,
     },
     email: {
       type: String,
       unique:true,
       required: false,
-      lowercase: true
+      lowercase: true,
+      null: true
     },
     phone: {
       type: String,
@@ -51,7 +52,8 @@ const userSettingsSchema = new Schema (
     social_handles: {
       type: Map,
       of: String,
-      required:false
+      required:false,
+      null: true
     }
   }, { timestamps: true }
 );
