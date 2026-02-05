@@ -33,27 +33,15 @@ export const authenticate = async (currentUser: IUser): Promise<IUser | null> =>
       return null
     }
 
-    // const existingSettings = await UserSettings.exists({username: authUser.username}).exec();
+    const existingSettings = await UserSettings.exists({user: authUser._id}).exec();
 
-    // if (!existingSettings?._id) {
-    //   await UserSettings.create({
-    //     username: authUser.username,
-    //     user: authUser._id
-    //   })
-    // }
-
-    await UserSettings.findOneAndUpdate(
-      { user: authUser._id },
-      {
-        username: authUser.username,
-        user: authUser._id
-      },
-      {
-        upsert: true,
-        new: false
-      }
-    );
-
+    if (!existingSettings?._id) {
+      await UserSettings.create({
+        user: authUser._id,
+        username: authUser.username        
+      });
+    }
+    
     return authUser
   } catch (error) {
     logger.error(
