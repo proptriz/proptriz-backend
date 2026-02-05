@@ -33,14 +33,20 @@ export const authenticate = async (currentUser: IUser): Promise<IUser | null> =>
       return null
     }
 
-    const existingSettings = await UserSettings.exists({user: authUser._id}).exec();
-
-    if (!existingSettings?._id) {
-      await UserSettings.create({
-        user: authUser._id,
-        username: authUser.username        
-      });
-    }
+    await UserSettings.findOneAndUpdate(
+      { user: authUser._id },
+      {
+        $setOnInsert: {
+          user: authUser._id,
+          username: authUser.username
+        }
+      },
+      { 
+        upsert: true,
+        new: false,
+        runValidators: true
+      }
+    );
     
     return authUser
   } catch (error) {
