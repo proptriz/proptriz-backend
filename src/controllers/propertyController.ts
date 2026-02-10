@@ -230,7 +230,7 @@ const PropertyController = {
     } catch (error: any) {
       logger.error(
         "Controller Error fetching nearest properties:",
-        error.message || error
+        error || error
       );
       return res.status(500).json({
         success: false,

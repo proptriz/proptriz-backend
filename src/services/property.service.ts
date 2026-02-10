@@ -1,5 +1,5 @@
 import logger from "../config/loggingConfig";
-import { buildHybridSearchCriteria } from "../helpers/buildFilter";
+import { buildGeoSearchCriteria, buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
@@ -285,16 +285,14 @@ class PropertyService {
     }
   }
 
-  async getNearestProperties(
-    params: {
-      lat: number;
-      lng: number;
-      searchQuery?: string;
-      filter?: FilterQuery<IProperty>;
-      cursor?: string;
-      limit?: number;
-    }
-  ): Promise<{
+  async getNearestProperties(params: {
+    lat: number;
+    lng: number;
+    searchQuery?: string;
+    filter?: FilterQuery<IProperty>;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
     properties: any[];
     nextCursor: string | null;
   }> {
@@ -305,12 +303,24 @@ class PropertyService {
         searchQuery = "",
         filter = {},
         cursor,
-        limit = PAGE_LIMIT
+        limit = PAGE_LIMIT,
       } = params;
 
       const now = new Date();
       const cursorMatch = cursor ? decodeCursor(cursor) : null;
-      const searchCriteria = buildHybridSearchCriteria(searchQuery);
+
+      // ✅ GEO-SAFE filters only
+      const geoQuery = {
+        ...filter,
+        status: PropertyStatusEnum.available,
+        expired_by: { $gt: now },
+      };
+
+      // ✅ GEO-SAFE search
+      const geoSearchMatch =
+        searchQuery.trim().length > 0
+          ? buildGeoSearchCriteria(searchQuery)
+          : null;
 
       const pipeline: PipelineStage[] = [
         {
@@ -322,14 +332,11 @@ class PropertyService {
             distanceField: "distance",
             spherical: true,
             key: "map_location",
-            query: {
-              ...filter,
-              ...searchCriteria,
-              status: PropertyStatusEnum.available,
-              expired_by: { $gt: now },
-            },
+            query: geoQuery,
           },
         },
+
+        ...(geoSearchMatch ? [{ $match: geoSearchMatch }] : []),
 
         ...(cursorMatch ? [{ $match: cursorMatch }] : []),
 
