@@ -7,7 +7,7 @@ import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
 import UserSettings, { UserSettingsType } from "../models/userSettings";
 import { PropertyStatusEnum } from "../models/enums/PropertyStatusEnum";
-import { decodeCursor, encodeCursor } from "../helpers/cursor";
+import { decodeCursor } from "../helpers/cursor";
 import { LeanWithId } from "../helpers/leanWithId";
 import paginateWithCursor from "../helpers/paginateWithCursor";
 
@@ -496,13 +496,6 @@ class PropertyService {
           property: { $in: ownedPropertyIds.map(p => p._id) }
         });
       }
-
-      // const lastProperty = properties[properties.length - 1];
-
-
-      // const nextCursor = lastProperty
-      //   ? encodeCursor({createdAt: lastProperty.updatedAt, _id: lastProperty._id})
-      //   : null;
 
       const paginated = paginateWithCursor(properties, PAGE_LIMIT);
 
