@@ -43,3 +43,16 @@ export const buildGranularSearchCriteria = (search_query?: string) => {
   return criteria;
 };
 
+export const buildGeoSearchCriteria = (query: string) => {
+  if (!query?.trim()) return {};
+
+  const regex = new RegExp(query.trim(), "i");
+
+  return {
+    $or: [
+      { title: regex },
+      { address: regex },
+      { description: regex },
+    ],
+  };
+};

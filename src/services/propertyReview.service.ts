@@ -334,7 +334,7 @@ export async function getReplies(
 
     const replies = await PropertyReviewReply.find(query)
       .sort({ createdAt: -1, _id: -1 })
-      .limit(Math.min(PAGE_LIMIT, 50))
+      .limit(Math.min(PAGE_LIMIT, 20))
       .populate({
         path: "reply_from",
         select: "username image"
