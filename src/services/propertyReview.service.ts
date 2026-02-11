@@ -6,12 +6,12 @@ import { uploadToCloudinary } from "./misc/image.service";
 import { decodeCursor, encodeCursor } from "../helpers/cursor";
 import { LeanWithId } from "../helpers/leanWithId";
 import { computeRatings } from "../helpers/computeReview";
-import User from "../models/user";
 import UserSettings from "../models/userSettings";
 import Property from "../models/property";
 import logger from "../config/loggingConfig";
+import paginateWithCursor from "../helpers/paginateWithCursor";
 
-const PAGE_LIMIT = 20;
+const PAGE_LIMIT = 10;
 
 // add a new review
 export async function addReview(
@@ -34,6 +34,15 @@ export async function addReview(
     const userSettings = await UserSettings.findOne({ user: authUser._id }).exec();
     if (!userSettings) {
       throw new Error("User settings not found for the authenticated user");
+    }
+
+    const property = await Property.findOne({property: reviewData.property}).exec();
+    if (!property) {
+      throw new Error("Property no found ")
+    }
+
+    if (property.user !== userSettings._id) {
+      throw new Error("You can't rate your own property")
     }
 
     const newReview = new PropertyReview({
@@ -111,31 +120,11 @@ type GetReviewResult = {
 
 export async function getPropertyReviews(property_id: string, cursor: string | undefined): Promise<GetReviewResult> {
   try {
-    let decodedCursor: string | null = null;
 
-    if (cursor) {
-      decodedCursor = decodeCursor(cursor);
-    }
-
-    const query: any = { property: property_id };
-
-    if (decodedCursor) {
-      const [createdAtRaw, idRaw] = decodedCursor.split("_");
-
-      if (
-        createdAtRaw &&
-        idRaw &&
-        mongoose.Types.ObjectId.isValid(idRaw)
-      ) {
-        query.$or = [
-          { createdAt: { $lt: new Date(createdAtRaw) } },
-          {
-            createdAt: new Date(createdAtRaw),
-            _id: { $lt: new mongoose.Types.ObjectId(idRaw) }
-          }
-        ];
-      }
-    }
+    const query: any = { 
+      property: property_id,
+      ...decodeCursor(cursor) 
+    };
 
     // Fetch review (lean + controlled populate)
     const reviews = await PropertyReview.find(query)
@@ -155,7 +144,7 @@ export async function getPropertyReviews(property_id: string, cursor: string | u
     const lastReview = reviews[reviews.length - 1];
 
     const nextCursor = lastReview
-      ? encodeCursor(lastReview._id.toString())
+      ? encodeCursor({createdAt: lastReview.createdAt, _id: lastReview._id})
       : null;
 
     return {
@@ -171,27 +160,6 @@ export async function getPropertyReviews(property_id: string, cursor: string | u
       }`
     );
   }
-}
-
-function buildCursorMatch(cursor?: string) {
-  if (!cursor) return {};
-
-  const decoded = decodeCursor(cursor);
-  const [createdAtRaw, idRaw] = decoded.split("_");
-
-  if (!createdAtRaw || !mongoose.Types.ObjectId.isValid(idRaw)) {
-    return {};
-  }
-
-  return {
-    $or: [
-      { createdAt: { $lt: new Date(createdAtRaw) } },
-      {
-        createdAt: new Date(createdAtRaw),
-        _id: { $lt: new mongoose.Types.ObjectId(idRaw) }
-      }
-    ]
-  };
 }
 
 type LeanReview = LeanWithId<PropertyReviewType> & {
@@ -221,7 +189,9 @@ export async function getUserReviews(
 ): Promise<GetUserReviewsResult> {
   const userSettings = await UserSettings.findOne({
     user: authUser._id
-  }).select("_id").lean();
+  })
+    .select("_id")
+    .lean();
 
   if (!userSettings) {
     throw new Error("User settings not found");
@@ -229,87 +199,118 @@ export async function getUserReviews(
 
   const sentMatch = {
     sender: userSettings._id,
-    ...buildCursorMatch(sentCursor)
+    ...decodeCursor(sentCursor)
   };
 
   const receivedMatch = {
-    propertyOwner: authUser._id,
-    ...buildCursorMatch(receivedCursor)
+    ...decodeCursor(receivedCursor)
   };
 
-  const [sent, received] = await Promise.all([
+  const [sentReviews, receivedReviews] = await Promise.all([
+    // ---------------- SENT REVIEWS ----------------
     PropertyReview.aggregate([
       { $match: sentMatch },
+
       { $sort: { createdAt: -1, _id: -1 } },
+      { $limit: PAGE_LIMIT + 1 },
+
       {
-        $facet: {
-          reviews: [
-            { $limit: PAGE_LIMIT },
-            {
-              $lookup: {
-                from: "usersettings",
-                localField: "sender",
-                foreignField: "_id",
-                as: "sender",
-                pipeline: [{ $project: { username: 1, image: 1 } }]
-              }
-            },
-            { $unwind: "$sender" }
-          ],
-          totalCount: [{ $count: "count" }]
+        $lookup: {
+          from: "properties",
+          localField: "property",
+          foreignField: "_id",
+          as: "property",
+          pipeline: [
+            { $project: { title: 1, banner: 1, address: 1, average_rating: 1, user: 1 } }
+          ]
         }
-      }
+      },
+      { $unwind: "$property" },
+
+      {
+        $lookup: {
+          from: "user-settings",
+          localField: "sender",
+          foreignField: "_id",
+          as: "sender",
+          pipeline: [{ $project: { username: 1, image: 1 } }]
+        }
+      },
+      { $unwind: "$sender" }
     ]),
 
+    // ---------------- RECEIVED REVIEWS ----------------
     PropertyReview.aggregate([
-      { $match: receivedMatch },
-      { $sort: { createdAt: -1, _id: -1 } },
       {
-        $facet: {
-          reviews: [
-            { $limit: PAGE_LIMIT },
+        $lookup: {
+          from: "properties",
+          localField: "property",
+          foreignField: "_id",
+          as: "property",
+          pipeline: [
             {
-              $lookup: {
-                from: "usersettings",
-                localField: "sender",
-                foreignField: "_id",
-                as: "sender",
-                pipeline: [{ $project: { username: 1, image: 1 } }]
-              }
+              $match: { user: authUser._id }
             },
-            { $unwind: "$sender" }
-          ],
-          totalCount: [{ $count: "count" }]
+            { $project: { title: 1, banner: 1, address: 1, average_rating: 1, user: 1 } }
+          ]
         }
-      }
+      },
+      { $unwind: "$property" },
+
+      { $match: receivedMatch },
+
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $limit: PAGE_LIMIT + 1 },
+
+      {
+        $lookup: {
+          from: "user-settings",
+          localField: "sender",
+          foreignField: "_id",
+          as: "sender",
+          pipeline: [{ $project: { username: 1, image: 1 } }]
+        }
+      },
+      { $unwind: "$sender" }
     ])
   ]);
 
-  const sentReviews = sent[0]?.reviews ?? [];
-  const receivedReviews = received[0]?.reviews ?? [];
+  // ---------------- COUNTS ----------------
+
+  const sentTotalCount = !sentCursor
+    ? await PropertyReview.countDocuments({ sender: userSettings._id })
+    : null;
+
+  let receivedTotalCount = null;
+
+  if (!receivedCursor) {
+    const ownedPropertyIds = await Property.find(
+      { user: authUser._id },
+      { _id: 1 }
+    ).lean();
+
+    receivedTotalCount = await PropertyReview.countDocuments({
+      property: { $in: ownedPropertyIds.map(p => p._id) }
+    });
+  }
+
+  const sentPage = paginateWithCursor(sentReviews, PAGE_LIMIT);
+  const receivedPage = paginateWithCursor(receivedReviews, PAGE_LIMIT);
 
   return {
     sent: {
-      reviews: sentReviews,
-      nextCursor:
-        sentReviews.length > 0
-          ? encodeCursor(sentReviews.at(-1)!)
-          : null,
-      totalCount: sent[0]?.totalCount?.[0]?.count ?? 0
+      reviews: sentPage.page,
+      nextCursor: sentPage.nextCursor,
+      totalCount: sentTotalCount ?? 0
     },
 
     received: {
-      reviews: receivedReviews,
-      nextCursor:
-        receivedReviews.length > 0
-          ? encodeCursor(receivedReviews.at(-1)!)
-          : null,
-      totalCount: received[0]?.totalCount?.[0]?.count ?? 0
+      reviews: receivedPage.page,
+      nextCursor:receivedPage.nextCursor,
+      totalCount: receivedTotalCount ?? 0
     }
   };
 }
-
-
 
 type GetRepliesResult = {
   replies: PropertyReplyReviewType[];
@@ -326,35 +327,14 @@ export async function getReplies(
       throw new Error("Invalid review ID");
     }
 
-    let decodedCursor: string | null = null;
-
-    if (cursor) {
-      decodedCursor = decodeCursor(cursor);
-    }
-
-    const query: any = { review: reviewId };
-
-    if (decodedCursor) {
-      const [createdAtRaw, idRaw] = decodedCursor.split("_");
-
-      if (
-        createdAtRaw &&
-        idRaw &&
-        mongoose.Types.ObjectId.isValid(idRaw)
-      ) {
-        query.$or = [
-          { createdAt: { $lt: new Date(createdAtRaw) } },
-          {
-            createdAt: new Date(createdAtRaw),
-            _id: { $lt: new mongoose.Types.ObjectId(idRaw) }
-          }
-        ];
-      }
-    }
+    const query = { 
+      review: reviewId,
+      ...decodeCursor(cursor) 
+    };
 
     const replies = await PropertyReviewReply.find(query)
       .sort({ createdAt: -1, _id: -1 })
-      .limit(Math.min(PAGE_LIMIT, 50))
+      .limit(Math.min(PAGE_LIMIT, 20))
       .populate({
         path: "reply_from",
         select: "username image"
@@ -365,7 +345,7 @@ export async function getReplies(
     const lastReply = replies[replies.length - 1];
 
     const nextCursor = lastReply
-      ? encodeCursor(lastReply._id.toString())
+      ? encodeCursor({createdAt: lastReply.createdAt, _id: lastReply._id})
       : null;
 
     return {
@@ -405,6 +385,12 @@ export async function addReply(
     });
 
     const reviewReply = await newReply.save();
+
+    // Update reply count in PropertyReview
+    await PropertyReview.findByIdAndUpdate(
+      replyData.review,
+      { $inc: { reply_count: 1 } }
+    ).exec();
 
     if (!reviewReply) {
       throw new Error("Error adding new review")

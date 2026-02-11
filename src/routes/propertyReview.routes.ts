@@ -27,8 +27,8 @@ propertyReviewRoutes.get(
 );
 
 propertyReviewRoutes.get(
-  "/user", 
-  reviewValidations.getPropertyReview,
+  "/user/review", 
+  verifyToken,
   PropertyReviewController.getUserReviews
 );
 

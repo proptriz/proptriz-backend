@@ -6,6 +6,7 @@ import { RenewalEnum } from "./enums/RenewalEnum";
 import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
 import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
 import { CurrencyEnum } from "./enums/CurrencyEnum";
+import { InferSchemaType } from "mongoose";
 
 const propertySchema = new Schema<IProperty>(
   {
@@ -92,14 +93,52 @@ const propertySchema = new Schema<IProperty>(
   { timestamps: true }
 );
 
-// ✅ Separate text and geo indexes
-propertySchema.index({
-  title: "text",
-  address: "text",
-  property_terms: "text",
-});
+// 🔹 1. User properties + cursor pagination (KEEP)
+propertySchema.index(
+  { user: 1, createdAt: -1, _id: -1 },
+  { name: "user_cursor_idx" }
+);
 
-propertySchema.index({ map_location: "2dsphere" });
+// 🔹 2. Main listing filters + sort
+propertySchema.index(
+  {
+    status: 1,
+    listed_for: 1,
+    category: 1,
+    price: 1,
+    createdAt: -1,
+    _id: -1
+  },
+  { name: "listing_filter_sort_idx" }
+);
+
+// 🔹 3. Geo search + core filters
+propertySchema.index(
+  {
+    map_location: "2dsphere",
+    status: 1,
+    listed_for: 1,
+    category: 1
+  },
+  { name: "geo_filter_idx" }
+);
+
+// 🔹 4. Text search (ONLY ONE text index)
+propertySchema.index(
+  {
+    title: "text",
+    address: "text",
+    description: "text"
+  },
+  {
+    weights: {
+      title: 5,
+      address: 3,
+      description: 1
+    },
+    name: "property_text_search_idx"
+  }
+);
 
 // 🌀 Pre-save hook for unique slug
 propertySchema.pre<IProperty & Document>("save", async function (next) {

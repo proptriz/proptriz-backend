@@ -89,50 +89,76 @@ const PropertyController = {
   // Get all properties with pagination & filters
   async getAllProperties(req: Request, res: Response) {
     try {
-      const { query, category, ne_lat, ne_lng, sw_lat, sw_lng } = req.query;
+      const {
+        query,
+        category,
+        listed_for,
+        min_price,
+        max_price,
+        ne_lat,
+        ne_lng,
+        sw_lat,
+        sw_lng,
+        cursor = undefined,
+      } = req.query;
 
-      let boundsFilter: any = {};
-      const searchQuery = query?.toString().trim() || '';
+      const searchQuery = query?.toString().trim() || "";
 
-      // ✅ Build bounds filter correctly
-      if (category || (ne_lat && ne_lng && sw_lat && sw_lng)) {
-        boundsFilter = {
-          ...(category && { category }),
-          ...(ne_lat &&
-            ne_lng &&
-            sw_lat &&
-            sw_lng && {
-              map_location: {
-                $geoWithin: {
-                  $box: [
-                    [parseFloat(sw_lng as string), parseFloat(sw_lat as string)], // bottom-left
-                    [parseFloat(ne_lng as string), parseFloat(ne_lat as string)], // top-right
-                  ],
-                },
-              },
-            }),
+      // Pagination
+      const pageCursor = cursor ? cursor as string : undefined
+      /* ---------------- Build Mongo Filter ---------------- */
+
+      const propertyFilter: any = {};
+
+      // ✅ Category
+      if (category && category !== "") {
+        propertyFilter.category = category;
+      }
+
+      // ✅ Listed For
+      if (listed_for && listed_for !== "all") {
+        propertyFilter.listed_for = listed_for;
+      }
+
+      // ✅ Price Range
+      const minPrice = min_price ? Number(min_price) : null;
+      const maxPrice = max_price ? Number(max_price) : null;
+
+      if (minPrice != null || maxPrice != null) {
+        propertyFilter.price = {};
+
+        if (minPrice != null && !Number.isNaN(minPrice)) {
+          propertyFilter.price.$gte = minPrice;
+        }
+
+        if (maxPrice != null && !Number.isNaN(maxPrice)) {
+          propertyFilter.price.$lte = maxPrice;
+        }
+      }
+
+      // ✅ Geo Bounds Filter
+      if (ne_lat && ne_lng && sw_lat && sw_lng) {
+        propertyFilter.map_location = {
+          $geoWithin: {
+            $box: [
+              [parseFloat(sw_lng as string), parseFloat(sw_lat as string)],
+              [parseFloat(ne_lng as string), parseFloat(ne_lat as string)],
+            ],
+          },
         };
       }
 
-      // Pagination
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 10;
-      const skip = (page - 1) * limit;
-
       // await populateUsertype()
-      const properties = await PropertyService.getProperties(
-        skip,
-        limit,
+      const result = await PropertyService.getProperties(
         searchQuery,
-        boundsFilter
+        propertyFilter,
+        pageCursor
       );
 
-      logger.info("Properties fetched successfully:", properties.length);
+      logger.info("Properties fetched successfully:", result.properties.length);
       return res.status(200).json({
         success: true,
-        properties,
-        currentPage: page,
-        totalPages: Math.ceil(properties.length / limit),
+        ...result,
       });
     } catch (error: any) {
       logger.error("Controller Error fetching all properties:", error.message || error);
@@ -143,12 +169,85 @@ const PropertyController = {
   // Get all properties with pagination & filters
   async getNearestProperties(req: Request, res: Response) {
     try {
+      const {
+        query,
+        category,
+        listed_for,
+        min_price,
+        max_price,
+        lat,
+        lng,
+        cursor,
+      } = req.query;
+
+      if (!lat || !lng) {
+        return res.status(400).json({
+          success: false,
+          message: "Latitude and longitude are required",
+        });
+      }
+
+      const searchQuery = query?.toString().trim() || "";
+      const pageCursor = cursor ? String(cursor) : undefined;
+
+      /* ---------------- Build Filter ---------------- */
+      const propertyFilter: any = {};
+
+      if (category && category !== "") {
+        propertyFilter.category = category;
+      }
+
+      if (listed_for && listed_for !== "all") {
+        propertyFilter.listed_for = listed_for;
+      }
+
+      const minPrice = min_price ? Number(min_price) : null;
+      const maxPrice = max_price ? Number(max_price) : null;
+
+      if (minPrice != null || maxPrice != null) {
+        propertyFilter.price = {};
+        if (minPrice != null && !Number.isNaN(minPrice)) {
+          propertyFilter.price.$gte = minPrice;
+        }
+        if (maxPrice != null && !Number.isNaN(maxPrice)) {
+          propertyFilter.price.$lte = maxPrice;
+        }
+      }
+
+      /* ---------------- Service Call ---------------- */
+      const result = await PropertyService.getNearestProperties({
+        lat: Number(lat),
+        lng: Number(lng),
+        searchQuery,
+        filter: propertyFilter,
+        cursor: pageCursor,
+      });
+
+      return res.status(200).json({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      logger.error(
+        "Controller Error fetching nearest properties:",
+        error || error
+      );
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+
+  // Get all properties with pagination & filters
+  async getCollocatedProperties(req: Request, res: Response) {
+    try {
       const propertyId = req.params.pid;
       logger.info("Fetching Nearest properties from property ID:", {propertyId});
 
       const limit = parseInt(req.query.limit as string, 10) || 6;
 
-      const properties = await PropertyService.getNearestProperties(
+      const properties = await PropertyService.getCollocatedProperties(
         propertyId,
         limit
       );
@@ -171,22 +270,18 @@ const PropertyController = {
     try {
       const currentUser = req.currentUser as IUser;
       logger.info("Fetching User properties for user ID:", currentUser._id);
-
-      const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = parseInt(req.query.limit as string, 10) || 10;
-      const skip = (page - 1) * limit;
+      
+      const cursor = req.query.cursor ? req.query.cursor as string : undefined;
 
       const properties = await PropertyService.getUserProperties(
         currentUser,
-        skip,
-        limit
+        cursor
       );
 
-      logger.info("Nearest Properties fetched successfully:", properties.length);
+      logger.info("User Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
-        properties,
-        totalPages: Math.ceil(properties.length / limit),
+        properties
       });
 
     } catch (error: any) {

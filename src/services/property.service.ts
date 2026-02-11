@@ -1,5 +1,5 @@
 import logger from "../config/loggingConfig";
-import { buildHybridSearchCriteria } from "../helpers/buildFilter";
+import { buildGeoSearchCriteria, buildHybridSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
@@ -7,6 +7,15 @@ import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { ListForEnum } from "../models/enums/ListForEnum";
 import UserSettings, { UserSettingsType } from "../models/userSettings";
 import { PropertyStatusEnum } from "../models/enums/PropertyStatusEnum";
+import { decodeCursor } from "../helpers/cursor";
+import { LeanWithId } from "../helpers/leanWithId";
+import paginateWithCursor from "../helpers/paginateWithCursor";
+
+const PAGE_LIMIT = 10;
+
+type LeanPropertyWithCursor = LeanWithId<IProperty> & {
+  createdAt: Date;
+};
 
 class PropertyService {
 
@@ -205,12 +214,16 @@ class PropertyService {
 
   // Get a list of properties based on a filter
   async getProperties(
-    skip: number,
-    pageSize: number,
     search_query: string,
-    filter: FilterQuery<IProperty> = {}
-  ): Promise<any[]> {
+    filter: FilterQuery<IProperty> = {},
+    cursor?: string
+  ): Promise<{
+    properties: any[];
+    nextCursor: string | null;
+  }>  {
     try {
+      const cursorMatch = decodeCursor(cursor);
+
       // Build text/multi-field search
       // ✅ Merge filters safely
       const searchCriteria = buildHybridSearchCriteria(search_query);
@@ -220,30 +233,26 @@ class PropertyService {
       const pipeline: PipelineStage[] = [
         {
           $match: {
-            ...filter,
-            ...searchCriteria, // ✅ Correct merge inside $match
-            status: PropertyStatusEnum.available, // or PropertyStatus.ACTIVE
-            expired_by: {
-              $gt: now, // non-expired listings only
-            },
-          },
+            $and: [
+              filter,
+              searchCriteria,
+              {
+                status: PropertyStatusEnum.available,
+                expired_by: { $gt: now }
+              },
+              ...(cursor ? [cursorMatch] : [])
+            ]
+          }
         },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: pageSize },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: "$user" },
+
+        { $sort: { createdAt: -1, _id: -1 } },
+
+        // Fetch one extra to know if there is a next page
+        { $limit: PAGE_LIMIT + 1 },
+
         {
           $project: {
-            id: "$_id",
-            _id: 0,
+            _id: 1,
             title: 1,
             category: 1,
             price: 1,
@@ -252,23 +261,123 @@ class PropertyService {
             listed_for: 1,
             currency: 1,
             period: 1,
+            average_rating: 1,
+            createdAt: 1,
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
-            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-            "user.username": 1,
-          },
-        },
+            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] }
+          }
+        }
       ];
 
 
       const properties = await Property.aggregate(pipeline).exec();
       logger.info("fetched properties", properties.length);
-      return properties;
+
+      const paginatedProp = paginateWithCursor(properties, PAGE_LIMIT);
+
+      return {
+        properties: paginatedProp.page,
+        nextCursor: paginatedProp.nextCursor
+      };
+      
     } catch (error: any) {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
   }
 
-  async getNearestProperties(
+  async getNearestProperties(params: {
+    lat: number;
+    lng: number;
+    searchQuery?: string;
+    filter?: FilterQuery<IProperty>;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
+    properties: any[];
+    nextCursor: string | null;
+  }> {
+    try {
+      const {
+        lat,
+        lng,
+        searchQuery = "",
+        filter = {},
+        cursor,
+        limit = PAGE_LIMIT,
+      } = params;
+
+      const now = new Date();
+      const cursorMatch = cursor ? decodeCursor(cursor) : null;
+
+      // ✅ GEO-SAFE filters only
+      const geoQuery = {
+        ...filter,
+        status: PropertyStatusEnum.available,
+        expired_by: { $gt: now },
+      };
+
+      // ✅ GEO-SAFE search
+      const geoSearchMatch =
+        searchQuery.trim().length > 0
+          ? buildGeoSearchCriteria(searchQuery)
+          : null;
+
+      const pipeline: PipelineStage[] = [
+        {
+          $geoNear: {
+            near: {
+              type: "Point",
+              coordinates: [lng, lat],
+            },
+            distanceField: "distance",
+            spherical: true,
+            key: "map_location",
+            query: geoQuery,
+          },
+        },
+
+        ...(geoSearchMatch ? [{ $match: geoSearchMatch }] : []),
+
+        ...(cursorMatch ? [{ $match: cursorMatch }] : []),
+
+        { $sort: { distance: 1, _id: -1 } },
+
+        { $limit: limit + 1 },
+
+        {
+          $project: {
+            _id: 1,
+            title: 1,
+            category: 1,
+            price: 1,
+            currency: 1,
+            address: 1,
+            banner: 1,
+            listed_for: 1,
+            period: 1,
+            average_rating: 1,
+            distance: 1,
+            createdAt: 1,
+            longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
+            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
+          },
+        },
+      ];
+
+      const properties = await Property.aggregate(pipeline).exec();
+      const paginated = paginateWithCursor(properties, limit);
+
+      return {
+        properties: paginated.page,
+        nextCursor: paginated.nextCursor,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to retrieve nearest properties: ${error.message}`);
+    }
+  }
+
+
+  async getCollocatedProperties(
     propertyId: string,
     limit: number = 4
   ): Promise<any[]> {
@@ -341,53 +450,61 @@ class PropertyService {
   // Get a list of properties based on a filter
   async getUserProperties(
     authUser: IUser,
-    skip: number,
-    pageSize: number,
-  ): Promise<any[]> {
+    cursor?: string
+  ): Promise<any> {
     try {
       logger.info("getting user listed prop");
 
-      const pipeline: PipelineStage[] = [
-        {
-          $match: {
-            user: authUser._id,
-          },
-        },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: pageSize },
-        {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: "$user" },
-        {
-          $project: {
-            id: "$_id",
-            _id: 0,
-            title: 1,
-            category: 1,
-            price: 1,
-            currency: 1,
-            address: 1,
-            banner: 1,
-            listed_for: 1,
-            expired_by: 1,
-            period: 1,
-            longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
-            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-            "user.username": 1,
-          },
-        },
-      ];
-      
-      const properties = await Property.aggregate(pipeline).exec();
-      logger.info("fetched properties", properties.length);
-      return properties;
+      const query = { 
+        user: authUser._id,
+        ...decodeCursor(cursor) 
+      };
+
+      const properties = await  Property.find(query)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(Math.min(PAGE_LIMIT + 1, 20))
+      .select({
+        _id: 1,
+        title: 1,
+        category: 1,
+        price: 1,
+        currency: 1,
+        address: 1,
+        banner: 1,
+        listed_for: 1,
+        expired_by: 1,
+        period: 1,
+        username: 1,
+        average_rating: 1,
+        map_location: 1,
+        createdAt: 1 
+      })
+      .lean<LeanPropertyWithCursor[]>()
+      .exec();   
+
+      logger.info("User total properties", properties.length);
+
+      let propTotalCount = null;
+
+      if (!cursor) {
+        const ownedPropertyIds = await Property.find(
+          { user: authUser._id },
+          { _id: 1 }
+        ).lean().exec();
+    
+        propTotalCount = await Property.countDocuments({
+          property: { $in: ownedPropertyIds.map(p => p._id) }
+        });
+      }
+
+      const paginated = paginateWithCursor(properties, PAGE_LIMIT);
+
+      return {
+        totalProperties: propTotalCount,
+        properties: paginated.page,
+        nextCursor: paginated.nextCursor
+        
+      };
     } catch (error: any) {
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }

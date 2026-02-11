@@ -28,7 +28,7 @@ export const buildGranularSearchCriteria = (search_query?: string) => {
     .filter(Boolean);
 
   // Each token will match these fields
-  const fields = ["title", "address", "property_terms"];
+  const fields = ["title", "address", "description"];
 
   // Create a $and query where each word must match one of the fields
   const andConditions = tokens.map((token) => ({
@@ -43,3 +43,16 @@ export const buildGranularSearchCriteria = (search_query?: string) => {
   return criteria;
 };
 
+export const buildGeoSearchCriteria = (query: string) => {
+  if (!query?.trim()) return {};
+
+  const regex = new RegExp(query.trim(), "i");
+
+  return {
+    $or: [
+      { title: regex },
+      { address: regex },
+      { description: regex },
+    ],
+  };
+};

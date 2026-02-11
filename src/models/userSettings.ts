@@ -27,26 +27,25 @@ const userSettingsSchema = new Schema (
     },
     brand: {
       type: String,
-      null: true,
+      default: "",
       required: false,
     },
     email: {
       type: String,
-      unique:true,
-      required: false,
-      lowercase: true
+      lowercase: true,
+      required: false
     },
     phone: {
       type: String,
       maxlength: 15,
       required: false,
-      null: true
+      default: ""
     },
     whatsapp: {
       type: String,
       maxlength: 15,
       required: false,
-      null: true
+      default: ""
     },
     social_handles: {
       type: Map,
@@ -55,6 +54,17 @@ const userSettingsSchema = new Schema (
     }
   }, { timestamps: true }
 );
+
+userSettingsSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $type: "string" }
+    }
+  }
+);
+
 
 export type UserSettingsType = InferSchemaType<typeof userSettingsSchema>;
 const UserSettings = mongoose.model("User-Settings", userSettingsSchema);
