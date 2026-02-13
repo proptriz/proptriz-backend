@@ -46,7 +46,7 @@ const userRoutes = Router();
  *       500:
  *         description: Internal server error
  */
-// userRoutes.post("/authenticate/pi", isPioneerFound, userController.authenticateUser);
+userRoutes.post("/authenticate/pi", isPioneerFound, userController.authenticatePiUser);
 
 /**
  * @swagger

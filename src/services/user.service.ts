@@ -2,13 +2,14 @@ import mongoose from "mongoose";
 
 import User from "../models/user";
 import logger from "../config/loggingConfig";
-import { IUser } from "../types";
 import dotenv from "dotenv";
 import UserSettings from "../models/userSettings";
 import { AuthProvider } from "../models/enums/AuthProvider";
 import AuthIdentity from "../models/authIdentity";
 
 dotenv.config();
+
+const REQUIRED_ONBOARDING_VERSION = 1;
 
 interface AuthProfile {
   email?: string | null;
@@ -27,78 +28,93 @@ export async function resolveUser(
   session.startTransaction();
 
   try {
-    // 1️⃣ Find existing auth identity
+    let isNewUser = false;
+
+    // 1️⃣ Check if identity already exists
     const existingIdentity = await AuthIdentity.findOne(
       { provider, provider_user_id: providerUserId },
       null,
       { session }
     );
 
+    let user;
+
     if (existingIdentity) {
-      const user = await User.findById(existingIdentity.user_id, null, {
+      user = await User.findById(existingIdentity.user_id, null, {
         session,
       });
 
       if (!user) {
-        throw new Error("AuthIdentity exists but User not found");
+        throw new Error("AuthIdentity exists but User missing");
       }
 
       user.last_login_at = new Date();
       await user.save({ session });
+    } else {
+      // Normalize verified email
+      const email =
+        profile.email && profile.email_verified
+          ? profile.email.toLowerCase()
+          : null;
 
-      await session.commitTransaction();
-      return user;
-    }
+      // 2️⃣ Attempt account linking by verified email
+      if (email) {
+        user = await User.findOne(
+          { primary_email: email },
+          null,
+          { session }
+        );
+      }
 
-    // Normalize email
-    const email =
-      profile.email && profile.email_verified
-        ? profile.email.toLowerCase()
-        : null;
+      // 3️⃣ Create new user if not found
+      if (!user) {
+        user = await User.create(
+          [
+            {
+              primary_email: email,
+              display_name:
+                profile.name || profile.username || "User",
+              avatar: profile.picture || null,
+              onboarding_completed: false,
+              onboarding_version: 0,
+              last_login_at: new Date(),
+            },
+          ],
+          { session }
+        ).then(res => res[0]);
 
-    // 2️⃣ Try account linking via verified email
-    let user = null;
+        isNewUser = true;
+      }
 
-    if (email) {
-      user = await User.findOne(
-        { primary_email: email },
-        null,
+      // 4️⃣ Create auth identity
+      await AuthIdentity.create(
+        [
+          {
+            user_id: user._id,
+            provider,
+            provider_user_id: providerUserId,
+            username: profile.username || null,
+            email,
+            email_verified: Boolean(email),
+          },
+        ],
         { session }
       );
     }
 
-    // 3️⃣ Create new user if none exists
-    if (!user) {
-      user = await User.create(
-        [
-          {
-            primary_email: email,
-            display_name: profile.name || profile.username || "User",
-            avatar: profile.picture || null,
-            last_login_at: new Date(),
-          },
-        ],
-        { session }
-      ).then(res => res[0]);
-    }
-
-    // 4️⃣ Create auth identity
-    await AuthIdentity.create(
-      [
-        {
-          user_id: user._id,
-          provider,
-          provider_user_id: providerUserId,
-          username: profile.username || null,
-          email,
-          email_verified: Boolean(email),
-        },
-      ],
-      { session }
-    );
-
     await session.commitTransaction();
-    return user;
+
+    // 🔎 Determine onboarding requirement
+    const requiresOnboarding =
+      isNewUser ||
+      !user.onboarding_completed ||
+      user.onboarding_version < REQUIRED_ONBOARDING_VERSION;
+
+    return {
+      user,
+      isNewUser,
+      requiresOnboarding,
+    };
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -106,6 +122,7 @@ export async function resolveUser(
     session.endSession();
   }
 }
+
 
 
 

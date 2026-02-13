@@ -10,29 +10,37 @@ import { LeanWithId } from "../helpers/leanWithId";
 import { UserType } from "../models/user";
 
 
-// export const authenticateUser = async (req: Request, res: Response) => {
-//   const auth = req.body;
+export const authenticatePiUser = async (req: Request, res: Response) => {
+  try {
+    const piUser = req.body.user;
 
-//   try {
-//     const user = await UserService.resolveUser();
+    const provider = AuthProvider.pi;
+    const providerUserId = piUser.pi_uid;
+    const profile = {
+      name: piUser.username,
+      username: piUser.username,
+    }
 
-//     if (!user) throw new Error("Error finding or creating a user")
+    const { user, requiresOnboarding } = await UserService.resolveUser(provider, providerUserId, profile);
 
-//     const token = jwtHelper.generateUserToken(user);
-//     const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
+    if (!user) throw new Error("Error finding or creating a user")
 
-//     logger.info(`User authenticated: ${user._id}`);
+    const token = jwtHelper.generateUserToken(user);
+    const expiresDate = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
 
-//     return res.cookie("token", token, {httpOnly: true, expires: expiresDate, secure: true, priority: "high", sameSite: "lax"}).status(200).json({
-//       user: user,
-//       token,
-//     });
+    logger.info(`User authenticated: ${user._id}`);
 
-//   } catch (error: any) {
-//     logger.error('Failed to authenticate user:', error);
-//     return res.status(500).json({ message: error.message || 'An error occurred while authenticating user; please try again later' });
-//   }
-// };
+    return res.cookie("token", token, {httpOnly: true, expires: expiresDate, secure: true, priority: "high", sameSite: "lax"}).status(200).json({
+      user: user,
+      token,
+      requiresOnboarding
+    });
+
+  } catch (error: any) {
+    logger.error('Failed to authenticate user:', error);
+    return res.status(500).json({ message: error.message || 'An error occurred while authenticating user; please try again later' });
+  }
+};
 
 export const autoLoginUser = async(req: Request, res: Response) => {
   try {
@@ -96,29 +104,20 @@ export const authenticateGoogleUser = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Invalid Google token" });
     }
 
-    // Extract verified user info
-    const googleId = payload.sub; // unique user ID from Google
-    const email = payload.email;
-    const name = payload.name;
-    const picture = payload.picture;
-    const emailVerified = payload.email_verified;
-
-    if (!email || !emailVerified) {
+    if (!payload.email || !payload.email_verified) {
       return res.status(401).json({ message: "Email not verified" });
     }
 
-    const provider = AuthProvider.google;
-    const providerUserId = payload.sub;
-
-    const profile = {
-      email: payload.email,
-      email_verified: payload.email_verified,
-      name: payload.name,
-      username: payload.email,
-      picture: payload.picture
-    }
-
-    const user = await UserService.resolveUser(provider, providerUserId, profile);
+    const { user, requiresOnboarding } = await UserService.resolveUser(
+      AuthProvider.google,
+      payload.sub,
+      {
+        email: payload.email,
+        email_verified: payload.email_verified,
+        name: payload.name,
+        picture: payload.picture,
+      }
+    );
 
     if (!user) throw new Error("Error finding or creating a user")
 
@@ -130,18 +129,9 @@ export const authenticateGoogleUser = async (req: Request, res: Response) => {
     return res.cookie("token", token, {httpOnly: true, expires: expiresDate, secure: true, priority: "high", sameSite: "lax"}).status(200).json({
       user: user,
       token,
+      requiresOnboarding
     });
 
-    // TODO: Upsert user in your DB here
-    // const user = await User.findOneAndUpdate({ googleId }, {...}, { upsert: true, new: true });
-
-    // TODO: Create your own session (recommended)
-    // res.cookie("session", yourJwt, { httpOnly: true, secure: true, sameSite: "lax" });
-
-    return res.status(200).json({
-      message: "Google login verified",
-      user: { googleId, email, name, picture },
-    });
   } catch (err) {
     logger.error("Google auth error:", err);
     return res.status(401).json({ message: "Google token verification failed" });

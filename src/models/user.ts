@@ -27,6 +27,16 @@ const userSchema = new Schema(
       default: "user",
     },
 
+    onboarding_completed: {
+      type: Boolean,
+      default: false,
+    },
+
+    onboarding_version: {
+      type: Number,
+      default: 0,
+    },
+
     last_login_at: {
       type: Date,
       default: null,
