@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import PropertyReviewReply, { PropertyReplyReviewType } from "../models/propertyReplyReview";
 import PropertyReview, { PropertyReviewType } from "../models/propertyReview";
 import { IUser } from "../types";
-import { uploadToCloudinary } from "./misc/image.service";
+import { deleteFromCloudinary, uploadToCloudinary } from "./misc/image.service";
 import { decodeCursor, encodeCursor } from "../helpers/cursor";
 import { LeanWithId } from "../helpers/leanWithId";
 import { computeRatings } from "../helpers/computeReview";
@@ -19,8 +19,7 @@ export async function addReview(
   reviewData:PropertyReviewType,
   file?: Express.Multer.File
 ): Promise<PropertyReviewType> {
-  try {
-    
+  try {    
     // Upload new image if file exist
     if (file) {
       const url = await uploadToCloudinary(
@@ -31,23 +30,19 @@ export async function addReview(
       reviewData.image = url;
     }
 
-    const userSettings = await UserSettings.findOne({ user: authUser._id }).exec();
-    if (!userSettings) {
-      throw new Error("User settings not found for the authenticated user");
-    }
-
-    const property = await Property.findOne({property: reviewData.property}).exec();
+    const property = await Property.findById(reviewData.property).exec();
     if (!property) {
-      throw new Error("Property no found ")
+      throw new Error("Property not found ")
     }
 
-    if (property.user !== userSettings._id) {
+    if (property.user === authUser._id) {
+      // logger.warn("You can't rate your own property")
       throw new Error("You can't rate your own property")
     }
 
     const newReview = new PropertyReview({
       ...reviewData,
-      sender: userSettings._id,
+      sender: authUser._id,
       property: reviewData.property,
       comment: reviewData.comment,
       image: reviewData.image,
@@ -64,6 +59,10 @@ export async function addReview(
     return propertyReview;
     
   } catch (error: any) {
+    if (reviewData.image) {
+      await deleteFromCloudinary([reviewData.image]);
+    }
+
     throw new Error(`failed to add review for property: ${error.message}`);
   }
 };
@@ -187,18 +186,9 @@ export async function getUserReviews(
   sentCursor?: string,
   receivedCursor?: string
 ): Promise<GetUserReviewsResult> {
-  const userSettings = await UserSettings.findOne({
-    user: authUser._id
-  })
-    .select("_id")
-    .lean();
-
-  if (!userSettings) {
-    throw new Error("User settings not found");
-  }
 
   const sentMatch = {
-    sender: userSettings._id,
+    sender: authUser._id,
     ...decodeCursor(sentCursor)
   };
 
@@ -229,11 +219,11 @@ export async function getUserReviews(
 
       {
         $lookup: {
-          from: "user-settings",
+          from: "users",
           localField: "sender",
           foreignField: "_id",
           as: "sender",
-          pipeline: [{ $project: { username: 1, image: 1 } }]
+          pipeline: [{ $project: { display_name: 1, avatar: 1 } }]
         }
       },
       { $unwind: "$sender" }
@@ -264,11 +254,11 @@ export async function getUserReviews(
 
       {
         $lookup: {
-          from: "user-settings",
+          from: "users",
           localField: "sender",
           foreignField: "_id",
           as: "sender",
-          pipeline: [{ $project: { username: 1, image: 1 } }]
+          pipeline: [{ $project: { display_name: 1, avatar: 1 } }]
         }
       },
       { $unwind: "$sender" }
@@ -278,7 +268,7 @@ export async function getUserReviews(
   // ---------------- COUNTS ----------------
 
   const sentTotalCount = !sentCursor
-    ? await PropertyReview.countDocuments({ sender: userSettings._id })
+    ? await PropertyReview.countDocuments({ sender: authUser._id })
     : null;
 
   let receivedTotalCount = null;
@@ -362,7 +352,6 @@ export async function getReplies(
   }
 }
 
-
 // add a new review
 export async function addReply(
   authUser: IUser, 
@@ -371,14 +360,8 @@ export async function addReply(
   try {
     logger.info("Adding reply to review:", {replyData});
 
-    const userSettings = await UserSettings.findOne({ user: authUser._id }).exec();
-    if (!userSettings) {
-      logger.error("User settings not found for the authenticated user");
-      throw new Error("User settings not found for the authenticated user");
-    }
-
     const newReply = new PropertyReviewReply({
-      reply_from: userSettings._id,
+      reply_from: authUser._id,
       review: replyData.review,
       comment: replyData.comment,
       seen_by: []
