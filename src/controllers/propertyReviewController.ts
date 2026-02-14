@@ -65,7 +65,7 @@ export const addReview = async (req:Request, res:Response) => {
     return res.status(200).json(result)
 
   } catch (error:any){
-    logger.error("add review for property error: ", error.message)
+    logger.error("add review for property error: ", error)
     return res.status(400).json({message: "error giving review to property"})
   }
 }

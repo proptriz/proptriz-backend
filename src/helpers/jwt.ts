@@ -1,20 +1,21 @@
 import jwt from "jsonwebtoken";
 
 import { IUser } from "../types";
-import User from "../models/user";
+import User, { UserType } from "../models/user";
 import { env } from "../utils/env";
 import logger from "../config/loggingConfig";
+import { LeanWithId } from "./leanWithId";
 
-export const generateUserToken = (user: IUser) => {
+export const generateUserToken = (user: LeanWithId<UserType>) => {
   try {
-    logger.info(`Generating token for user: ${user.username}`);
-    const token = jwt.sign({ username: user.username, _id: user._id, userId: user.pi_uid }, env.JWT_SECRET, {
+    logger.info(`Generating token for user: ${user._id}`);
+    const token = jwt.sign({_id: user._id }, env.JWT_SECRET, {
       expiresIn: "1d", // 1 day
     });
-    logger.info(`Successfully generated token for user: ${user.username}`);
+    logger.info(`Successfully generated token for user: ${user._id}`);
     return token;
   } catch (error) {
-    logger.error(`Failed to generate user token for piUID ${ user.username }:`, error);
+    logger.error(`Failed to generate user token for piUID ${ user._id }:`, error);
     throw new Error('Failed to generate user token; please try again');
   }
 };
