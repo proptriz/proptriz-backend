@@ -1,14 +1,26 @@
 import { Document, Types } from "mongoose";
 import { CategoryEnum } from "./models/enums/CategoryEnum";
 import { CurrencyEnum } from "./models/enums/CurrencyEnum";
+import { LeanWithId } from "./helpers/leanWithId";
+import { UserType } from "./models/user";
 
 export interface BaseDocument extends Document {
   _id: Types.ObjectId;
 }
-export interface IUser extends Document {
-    username: string; // unique identifyer
-    pi_uid: string; // unique identifyer
+
+export interface IUser extends LeanWithId<UserType>{}; 
+
+export interface IAuthIdentity extends Document {
+  _id : Types.ObjectId;
+  user_id: Types.ObjectId;            // references User._id
+  provider: "pi" | "google" | "apple" | "facebook";
+  provider_user_id: string;   // pi_uid OR google.sub
+  username: string;           // optional (Pi username)
+  email: string;              // optional
+  email_verified: boolean;
+  createdAt: Date;
 };
+
 
 export interface A2UMetadata { 
   orderId: string; 

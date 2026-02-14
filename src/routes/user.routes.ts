@@ -46,7 +46,7 @@ const userRoutes = Router();
  *       500:
  *         description: Internal server error
  */
-userRoutes.post("/authenticate", isPioneerFound, userController.authenticateUser);
+userRoutes.post("/authenticate/pi", isPioneerFound, userController.authenticatePiUser);
 
 /**
  * @swagger
@@ -101,7 +101,7 @@ userRoutes.get("/me", verifyToken, userController.autoLoginUser);
  *       500:
  *         description: Internal server error
  */
-userRoutes.get("/:pi_uid", userController.getUser);
+// userRoutes.get("/:pi_uid", userController.getUser);
 
 /**
  * @swagger
@@ -129,7 +129,17 @@ userRoutes.get("/:pi_uid", userController.getUser);
 userRoutes.delete(
   "/delete",
   verifyToken,
-  userController.deleteUser
+  // userController.deleteUser
+);
+
+userRoutes.post(
+  "/authenticate/google", 
+  userController.authenticateGoogleUser
+);
+
+userRoutes.post(
+  "/authenticate/facebook", 
+  userController.authenticateGoogleUser
 );
 
 export default userRoutes;

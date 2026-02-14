@@ -16,14 +16,14 @@ const PropertyReviewReplySchema = new Schema(
 
     reply_from: {
       type: SchemaTypes.ObjectId,
-      ref: "User-Settings",
+      ref: "User",
       required: true
     },
 
     seen_by: {
       type: [
         {
-          user: { type: SchemaTypes.ObjectId, ref: "User-Settings" },
+          user: { type: SchemaTypes.ObjectId, ref: "User" },
           seen_at: { type: Date, default: Date.now }
         }
       ],
