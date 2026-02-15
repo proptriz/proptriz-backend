@@ -146,7 +146,7 @@ class PropertyService {
         duration: duration,
         expired_by: expiredBy,
         user: authUser._id,
-        username: authUser.username,
+        username: authUser.display_name,
         map_location: {
           type: "Point",
           coordinates: prop_cord,
@@ -202,7 +202,6 @@ class PropertyService {
       const userId = (property.user as any)?._id ?? property.user;
 
       const userDetails = await UserSettings.findOne({ user: userId })
-        .select('username user_type image brand email phone whatsapp social_handles -_id')
         .lean();
 
       logger.info("fetched owner:", { userDetails });
@@ -268,7 +267,6 @@ class PropertyService {
           }
         }
       ];
-
 
       const properties = await Property.aggregate(pipeline).exec();
       logger.info("fetched properties", properties.length);
@@ -412,15 +410,6 @@ class PropertyService {
         { $sort: { distance: 1 } },
         { $limit: limit },
         {
-          $lookup: {
-            from: "users",
-            localField: "user",
-            foreignField: "_id",
-            as: "user",
-          },
-        },
-        { $unwind: "$user" },
-        {
           $project: {
             id: "$_id",
             _id: 0,
@@ -433,9 +422,9 @@ class PropertyService {
             listed_for: 1,
             period: 1,
             distance: 1,
+            username: 1,
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-            "user.username": 1,
           },
         },
       ];

@@ -1,22 +1,52 @@
-import mongoose, { Schema, trusted } from "mongoose";
+import mongoose, { InferSchemaType, Schema } from "mongoose";
 
-import { IUser } from "../types";
-
-const userSchema = new Schema<IUser>(
+const userSchema = new Schema(
   {
-    username: {
+    primary_email: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
     },
-    pi_uid: {
+
+    display_name: {
       type: String,
       required: true,
-      unique: true,
-    }
-  }, { timestamps: true }
+      trim: true,
+    },
+
+    avatar: {
+      type: String,
+      default: null,
+    },
+
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+
+    onboarding_completed: {
+      type: Boolean,
+      default: false,
+    },
+
+    onboarding_version: {
+      type: Number,
+      default: 0,
+    },
+
+    last_login_at: {
+      type: Date,
+      default: null,
+    },
+  },
+  { timestamps: true }
 );
 
-const User = mongoose.model<IUser>("User", userSchema);
+export type UserType = InferSchemaType<typeof userSchema>;
+
+const User = mongoose.model<UserType>("User", userSchema);
 
 export default User;

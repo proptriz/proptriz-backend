@@ -7,7 +7,7 @@ export class UserSettingsController {
 
   getSettings = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userId = req.currentUser?._id as string;
+      const userId = req.currentUser?._id.toString() as string;
       if (!userId) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -22,14 +22,14 @@ export class UserSettingsController {
 
   addOrUpdateSettings = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userId = req.currentUser as IUser;
+      const currentUser = req.currentUser as IUser;
 
       const file = req.file as Express.Multer.File | undefined;
       const formData = req.body;
       // logger.info('Received addOrUpdateSettings request', { userId: userId._id, formData });
 
       const settings = await userSettingsService.addOrUpdateUserSettings(
-        userId,
+        currentUser._id.toString(),
         formData,
         file
       );
