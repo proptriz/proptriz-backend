@@ -411,8 +411,7 @@ class PropertyService {
         { $limit: limit },
         {
           $project: {
-            id: "$_id",
-            _id: 0,
+            _id: 1,
             title: 1,
             currency: 1,
             price: 1,
