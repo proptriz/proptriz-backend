@@ -11,25 +11,9 @@ const PropertyController = {
     try {
       const authUser = req.currentUser as IUser;
       const formData = req.body;
-      const files = req.files as Express.Multer.File[];
 
       // ✅ Log only the keys of formData, not full content
       // logger.debug("Received property formData keys:", Object.keys(formData));
-
-      // ✅ Image validation
-      if (!files || files.length === 0)
-        return res.status(400).json({ message: "No images uploaded" });
-
-      if (files.length > 5)
-        return res.status(400).json({ message: "Maximum 5 images allowed" });
-
-      // ✅ Log minimal file info — exclude Buffer
-      const fileInfo = files.map(f => ({
-        originalname: f.originalname,
-        mimetype: f.mimetype,
-        sizeKB: Math.round(f.size / 1024),
-      }));
-      logger.info("Uploaded files metadata:", fileInfo);
 
       // ✅ Parse structured JSON fields
       const parsedFeatures = formData.features
@@ -44,8 +28,7 @@ const PropertyController = {
       const propertyData = {
         ...formData,
         features: parsedFeatures,
-        env_facilities: parsedFacilities,
-        files,
+        env_facilities: parsedFacilities
       };
 
       // logger.info("Property data after parsing:", {
@@ -61,7 +44,7 @@ const PropertyController = {
 
       return res.status(201).json({
         success: true,
-        data: property,
+        property,
       });
     } catch (error: any) {
       logger.error("Error creating property:", error.message, error.stack);
