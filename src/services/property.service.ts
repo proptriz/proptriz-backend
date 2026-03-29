@@ -152,33 +152,11 @@ class PropertyService {
           coordinates: prop_cord,
         },
         features: propertyData.features || [],
-        env_facilities: propertyData.env_facilities || [],
       });
 
       // ✅ Step 1: Save first to trigger pre-save hook for slug
       const savedProperty = await property.save();
       logger.info(`Property base saved with slug:, ${savedProperty.slug}`);
-
-      // ✅ Step 2: Now upload images using slug
-      // if (propertyData.files && propertyData.files.length > 0) {
-      //   const imageUrls: string[] = [];
-        
-      //   for (const [index, file] of propertyData.files.entries()) {
-      //     const url = await uploadToCloudinary(
-      //       file.buffer,
-      //       `propTriz/${savedProperty.category}`,
-      //       `${savedProperty.slug}-${savedProperty.images.length + 1}`
-      //     );
-      //     imageUrls.push(url);
-      //   }
-
-      //   // ✅ Step 3: Update banner and images
-      //   if (imageUrls.length > 0) {
-      //     savedProperty.banner = imageUrls[0];
-      //     savedProperty.images = imageUrls;
-      //     await savedProperty.save(); // update with images
-      //   }
-      // }
 
       logger.info("Property created successfully:", savedProperty._id);
       return savedProperty;
