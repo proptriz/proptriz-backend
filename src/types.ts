@@ -105,11 +105,7 @@ export interface IProperty extends BaseDocument {
     type: 'Point';
     coordinates: [number, number];
   };
-  features?: [{
-      name: string;
-      quantity: number;
-  }];
-  env_facilities?: string[];
+  features?: string[];
   status: string; // (available, sold, unavailable, rented)
 };
 
