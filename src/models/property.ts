@@ -6,7 +6,6 @@ import { RenewalEnum } from "./enums/RenewalEnum";
 import { PropertyStatusEnum } from "./enums/PropertyStatusEnum";
 import { generateUniqueSlug } from "../helpers/generateUniqueSlug";
 import { CurrencyEnum } from "./enums/CurrencyEnum";
-import { InferSchemaType } from "mongoose";
 
 const propertySchema = new Schema<IProperty>(
   {
@@ -76,13 +75,7 @@ const propertySchema = new Schema<IProperty>(
       },
       coordinates: { type: [Number], required: true, default: [0, 0] },
     },
-    features: [
-      {
-        name: { type: String, required: true, index: true },
-        quantity: { type: Number, required: true },
-      },
-    ],
-    env_facilities: { type: [String] },
+    features: { type: [String] },
     status: {
       type: String,
       enum: PropertyStatusEnum,
