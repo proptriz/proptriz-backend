@@ -10,6 +10,7 @@ import propertyReviewRoutes from "../routes/propertyReview.routes";
 import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
 import settingsRoutes from "../routes/userSettings.routes";
+import landmarkRouter from "../routes/landmark.routes";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use("/api/v1/settings", settingsRoutes);
 app.use('/api/v1/payments', paymentsRouter);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
+app.use("/api/v1/landmarks", landmarkRouter);
 app.use("/", homeRoutes);
 
 export default app

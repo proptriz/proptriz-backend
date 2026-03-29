@@ -3,6 +3,7 @@ import { CategoryEnum } from "./models/enums/CategoryEnum";
 import { CurrencyEnum } from "./models/enums/CurrencyEnum";
 import { LeanWithId } from "./helpers/leanWithId";
 import { UserType } from "./models/user";
+import { LandmarkCategoryEnum } from "./models/enums/LandmarkCategoryEnum";
 
 export interface BaseDocument extends Document {
   _id: Types.ObjectId;
@@ -104,11 +105,7 @@ export interface IProperty extends BaseDocument {
     type: 'Point';
     coordinates: [number, number];
   };
-  features?: [{
-      name: string;
-      quantity: number;
-  }];
-  env_facilities?: string[];
+  features?: string[];
   status: string; // (available, sold, unavailable, rented)
 };
 
@@ -135,16 +132,14 @@ export interface IProperty extends BaseDocument {
     images?: string[]; // URLs of reviewer upload (optional)
   };
 
-  export interface ILandmark extends Document {
-    title: string // what the landmark is called
-    property: Types.ObjectId; // Foreing key referencing property
-    image?: string,
-    distance: number; // how far from referenced property (in km)
-    position_description: string, // derived from LocationProps
-    map_location?: {
-      type: 'Point';
-      coordinates: [number, number];
-    };
-    created_at: Date;
-    updated_at: Date
-  }
+export interface ILandmark extends Document {
+  property:         Types.ObjectId;
+  name:         string;
+  category:     LandmarkCategoryEnum;
+  map_location: {
+    type:        string;
+    coordinates: number[];  // [longitude, latitude] — GeoJSON order
+  };
+  createdAt:    Date;
+  updatedAt:    Date;
+}
