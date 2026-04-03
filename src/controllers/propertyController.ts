@@ -61,8 +61,7 @@ const PropertyController = {
       const description = req.body.description;
 
       // ✅ Log only the keys of formData, not full content
-      // logger.debug("Received property formData keys:", Object.keys(formData));
-      logger.info("Extracting property data from description. Description length:", description.length);
+      // logger.info("Extracting property data from description. Description length:", description);
       const property = await runExtractProperty(description);
 
       logger.info("Propertyinfo extracted successfully:", property );
@@ -73,10 +72,10 @@ const PropertyController = {
       });
       
     } catch (error: any) {
-      logger.error("Error creating property:", error.message, error.stack);
+      logger.error("Error extracting property data:", error.message, error.stack);
       return res.status(400).json({
         success: false,
-        message: error.message || "Failed to create property",
+        message: "Failed to extract property data",
       });
     }
   },
