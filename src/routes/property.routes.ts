@@ -17,5 +17,5 @@ propertyRoutes.put("/update/:pid", verifyToken, PropertyController.updatePropert
 propertyRoutes.delete("/delete/:pid", verifyToken, PropertyController.deleteProperty);
 propertyRoutes.post("/image/delete", verifyToken, PropertyController.deletePropertyImage);
 propertyRoutes.put("/image/update", verifyToken, upload.single('image'), PropertyController.updatePropertyImage);
-
+propertyRoutes.post("/ai/extract", verifyToken, PropertyController.extractPropertyData);
 export default propertyRoutes;

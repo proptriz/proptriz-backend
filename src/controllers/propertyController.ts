@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
+import runExtractProperty from "../utils/extractProperty";
 // import {populateUsertype} from "../../scripts/propMigrations"
 
 const PropertyController = {
@@ -46,6 +47,31 @@ const PropertyController = {
         success: true,
         property,
       });
+    } catch (error: any) {
+      logger.error("Error creating property:", error.message, error.stack);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Failed to create property",
+      });
+    }
+  },
+
+  async extractPropertyData(req: Request, res: Response) {
+    try {
+      const description = req.body.description;
+
+      // ✅ Log only the keys of formData, not full content
+      // logger.debug("Received property formData keys:", Object.keys(formData));
+      logger.info("Extracting property data from description. Description length:", description.length);
+      const property = await runExtractProperty(description);
+
+      logger.info("Propertyinfo extracted successfully:", property );
+
+      return res.status(201).json({
+        success: true,
+        propertyData: property,
+      });
+      
     } catch (error: any) {
       logger.error("Error creating property:", error.message, error.stack);
       return res.status(400).json({
