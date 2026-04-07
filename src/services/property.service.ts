@@ -191,7 +191,7 @@ class PropertyService {
 
   // Get a list of properties based on a filter
   async getProperties(
-    search_query: string,
+    searchQuery: string,
     filter: FilterQuery<IProperty> = {},
     cursor?: string
   ): Promise<{
@@ -203,8 +203,13 @@ class PropertyService {
 
       // Build text/multi-field search
       // ✅ Merge filters safely
-      const searchCriteria = buildHybridSearchCriteria(search_query);
-      logger.info("search query:", JSON.stringify(searchCriteria, null, 2));
+      
+      // ✅ GEO-SAFE search
+      const geoSearchMatch =
+        searchQuery.trim().length > 0
+          ? buildGeoSearchCriteria(searchQuery)
+          : null;
+
       const now = new Date();
 
       const pipeline: PipelineStage[] = [
@@ -212,7 +217,7 @@ class PropertyService {
           $match: {
             $and: [
               filter,
-              searchCriteria,
+              geoSearchMatch ? geoSearchMatch : {},
               {
                 status: PropertyStatusEnum.available,
                 expired_by: { $gt: now }
@@ -247,7 +252,7 @@ class PropertyService {
       ];
 
       const properties = await Property.aggregate(pipeline).exec();
-      logger.info("fetched properties", properties.length);
+      // logger.info("fetched properties", properties.length);
 
       const paginatedProp = paginateWithCursor(properties, PAGE_LIMIT);
 
@@ -257,6 +262,7 @@ class PropertyService {
       };
       
     } catch (error: any) {
+      logger.error("Error in PropertyService.getProperties:", {error});
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
   }

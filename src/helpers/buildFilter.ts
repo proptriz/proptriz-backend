@@ -2,7 +2,7 @@ export const buildHybridSearchCriteria = (search_query?: string) => {
   if (!search_query || !search_query.trim()) return {};
 
   const tokens = search_query.trim().split(/\s+/);
-  const fields = ["title", "address", "property_terms"];
+  const fields = ["title", "address", "description"];
 
   const regexFilters = tokens.map((token) => ({
     $or: fields.map((field) => ({
