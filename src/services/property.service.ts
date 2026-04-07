@@ -252,7 +252,7 @@ class PropertyService {
       ];
 
       const properties = await Property.aggregate(pipeline).exec();
-      logger.info("fetched properties", properties.length);
+      // logger.info("fetched properties", properties.length);
 
       const paginatedProp = paginateWithCursor(properties, PAGE_LIMIT);
 
@@ -262,6 +262,7 @@ class PropertyService {
       };
       
     } catch (error: any) {
+      logger.error("Error in PropertyService.getProperties:", {error});
       throw new Error(`Failed to retrieve properties: ${error.message}`);
     }
   }
