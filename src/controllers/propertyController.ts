@@ -72,7 +72,7 @@ const PropertyController = {
       });
       
     } catch (error: any) {
-      logger.error("Error extracting property data:", error.message, error.stack);
+      logger.error("Error extracting property data:", error, error.stack);
       return res.status(400).json({
         success: false,
         message: "Failed to extract property data",
