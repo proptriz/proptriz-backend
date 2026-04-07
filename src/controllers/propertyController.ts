@@ -163,13 +163,13 @@ const PropertyController = {
         pageCursor
       );
 
-      logger.info("Properties fetched successfully:", result.properties.length);
+      // logger.info("Properties fetched successfully:", result.properties.length);
       return res.status(200).json({
         success: true,
         ...result,
       });
     } catch (error: any) {
-      logger.error("Controller Error fetching all properties:", error.message || error);
+      logger.error("Controller Error fetching all properties:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   },
@@ -251,7 +251,7 @@ const PropertyController = {
   async getCollocatedProperties(req: Request, res: Response) {
     try {
       const propertyId = req.params.pid;
-      logger.info("Fetching Nearest properties from property ID:", {propertyId});
+      // logger.info("Fetching Nearest properties from property ID:", {propertyId});
 
       const limit = parseInt(req.query.limit as string, 10) || 6;
 
@@ -260,7 +260,7 @@ const PropertyController = {
         limit
       );
 
-      logger.info("Nearest Properties fetched successfully:", properties.length);
+      // logger.info("Nearest Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
         properties,
@@ -277,7 +277,7 @@ const PropertyController = {
   async getUserProperties(req: Request, res: Response) {
     try {
       const currentUser = req.currentUser as IUser;
-      logger.info("Fetching User properties for user ID:", currentUser._id);
+      // logger.info("Fetching User properties for user ID:", currentUser._id);
       
       const cursor = req.query.cursor ? req.query.cursor as string : undefined;
 
@@ -286,14 +286,14 @@ const PropertyController = {
         cursor
       );
 
-      logger.info("User Properties fetched successfully:", properties.length);
+      // logger.info("User Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
         properties
       });
 
     } catch (error: any) {
-      logger.error("Controller Error fetching all properties:", error);
+      // logger.error("Controller Error fetching all properties:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   },
@@ -301,10 +301,10 @@ const PropertyController = {
   // Update a property by ID
   async updateProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to update property with ID:", req.params.pid, "Updates:", req.body);
+      // logger.info("Request to update property with ID:", req.params.pid, "Updates:", req.body);
       const propertyId = req.params.pid;
       const formData = req.body;
-      logger.info("property Data to update:", formData);
+      // logger.info("property Data to update:", formData);
 
       // ✅ Parse structured JSON fields
       const parsedFeatures = formData.features
@@ -340,11 +340,11 @@ const PropertyController = {
   // Delete a property by ID
   async deleteProperty(req: Request, res: Response) {
     try {
-      logger.info("Request to delete property with ID:", req.params.pid);
+      // logger.info("Request to delete property with ID:", req.params.pid);
       const propertyId = req.params.pid;
       const authUser = req.currentUser as IUser;
       await PropertyService.deleteUserProperty(propertyId, authUser);
-      logger.info("Property deleted successfully:", propertyId);
+      // logger.info("Property deleted successfully:", propertyId);
       res.status(200).json({ success: true, message: "Property deleted successfully." });
     } catch (error: any) {
       logger.error("Error deleting property:", error.message);
@@ -354,12 +354,12 @@ const PropertyController = {
 
   async updatePropertyImage(req: Request, res: Response) {
     try {
-      logger.info("Request to update property image with ID:", req.params.pid);
+      // logger.info("Request to update property image with ID:", req.params.pid);
       const { property_id, image_index } = req.body;
       const file = req.file as Express.Multer.File; 
 
       if (!property_id || !file) {
-        logger.error("No image file or property ID provided.");
+        // logger.error("No image file or property ID provided.");
         return res.status(400).json({ success: false, message: "No image file or property ID provided." });
       }
       let imageUrl: string;
@@ -371,10 +371,10 @@ const PropertyController = {
         imageUrl = await PropertyService.updatePropertyImage(property_id, file, parseInt(image_index, 10));
       }
 
-      logger.info("Property image updated successfully:", {imageUrl});
+      // logger.info("Property image updated successfully:", {imageUrl});
       res.status(200).json({ success: true, image: imageUrl });
     } catch (error: any) {
-      logger.error("Error updating property image:", error.message);
+      // logger.error("Error updating property image:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
@@ -382,18 +382,18 @@ const PropertyController = {
   async deletePropertyImage(req: Request, res: Response) {
     try {
       const { property_id, image_url} = req.body;
-      logger.info("Request to delete property image with ID:", property_id, "Image URL:", image_url);      
+      // logger.info("Request to delete property image with ID:", property_id, "Image URL:", image_url);      
 
       if (!image_url || !property_id) {
         return res.status(400).json({ success: false, message: "No image URL or property ID provided." });
       }
 
       const updatedProperty = await PropertyService.deletePropertyImage(property_id, image_url);
-      logger.info("Property image deleted successfully:", {updatedProperty});
+      // logger.info("Property image deleted successfully:", {updatedProperty});
 
       res.status(200).json({ success: true, property: updatedProperty });
     } catch (error: any) {
-      logger.error("Error deleting property image:", error.message);
+      // logger.error("Error deleting property image:", error.message);
       res.status(400).json({ success: false, message: error.message });
     }
   },
