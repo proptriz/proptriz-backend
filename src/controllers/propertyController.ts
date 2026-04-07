@@ -111,6 +111,7 @@ const PropertyController = {
       } = req.query;
 
       const searchQuery = query?.toString().trim() || "";
+      console.log("Search query received in controller:", searchQuery);
 
       // Pagination
       const pageCursor = cursor ? cursor as string : undefined
@@ -169,7 +170,7 @@ const PropertyController = {
         ...result,
       });
     } catch (error: any) {
-      logger.error("Controller Error fetching all properties:", error.message || error);
+      logger.error("Controller Error fetching all properties:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   },
