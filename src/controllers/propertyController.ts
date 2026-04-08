@@ -68,7 +68,10 @@ const PropertyController = {
 
       return res.status(201).json({
         success: true,
-        propertyData: property,
+        propertyData: {
+          ...property,
+          description
+        },
       });
       
     } catch (error: any) {
