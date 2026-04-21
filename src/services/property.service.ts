@@ -1,5 +1,5 @@
 import logger from "../config/loggingConfig";
-import { buildGeoSearchCriteria, buildHybridSearchCriteria } from "../helpers/buildFilter";
+import { buildGeoSearchCriteria } from "../helpers/buildFilter";
 import Property from "../models/property";
 import { IProperty, IUser } from "../types";
 import { PipelineStage, FilterQuery, UpdateQuery } from "mongoose";
