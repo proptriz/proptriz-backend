@@ -88,7 +88,7 @@ export interface IProperty extends BaseDocument {
   slug: string;
   address: string; // Location of the property
   price: number; // Price per month
-  currency: CurrencyEnum; // Currency type (e.g. NGN, USD, GBP)
+  currency: CurrencyEnum;
   listed_for: string; // (e.g. "sell"/ "rent")
   category: CategoryEnum; // The class of property (e.g. house, land, shop, office, hotel )
   period?: string; // if is for rent, payment period (e.g monthly, yearly, daily)
