@@ -19,7 +19,7 @@ const propertySchema = new Schema<IProperty>(
     },
     address: { type: String, required: true, default: "", index: true },
     price: { type: Number, required: true },
-    currency: { type: String, enum: CurrencyEnum, required: true, default: CurrencyEnum.naira }, 
+    currency: { type: String, enum: CurrencyEnum, required: true, default: CurrencyEnum.ngn }, 
     listed_for: {
       type: String,
       enum: ListForEnum,
