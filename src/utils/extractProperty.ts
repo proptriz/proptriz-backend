@@ -78,7 +78,7 @@ const CURRENCY_MAP: Record<string, NormalisedProperty["currency"]> = {
   NGN: CurrencyEnum.ngn, NAIRA: CurrencyEnum.ngn, "₦": CurrencyEnum.ngn,
   USD: CurrencyEnum.usd,  DOLLAR: CurrencyEnum.usd, "$": CurrencyEnum.usd,
   GBP: CurrencyEnum.kes,  POUND: CurrencyEnum.kes,  "KSh": CurrencyEnum.kes,
-  EUR: CurrencyEnum.cda,  EURO: CurrencyEnum.cda,   "CDA": CurrencyEnum.cda,
+  EUR: CurrencyEnum.cdf,  EURO: CurrencyEnum.cdf,   "CDF": CurrencyEnum.cdf,
 };
 
 function normCurrency(raw: string | null | undefined): NormalisedProperty["currency"] {

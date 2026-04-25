@@ -3,6 +3,6 @@ export enum CurrencyEnum {
   usd ="USD",
   kes = "KES",
   cfa = "CFA",
-  cda = "CDA",
+  cdf = "CDF",
   pi = "Pi"
 }
