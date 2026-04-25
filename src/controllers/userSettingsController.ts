@@ -26,7 +26,7 @@ export class UserSettingsController {
 
       const file = req.file as Express.Multer.File | undefined;
       const formData = req.body;
-      // logger.info('Received addOrUpdateSettings request', { userId: userId._id, formData });
+      logger.info('Received addOrUpdateSettings request', { userId: currentUser._id, formData });
 
       const settings = await userSettingsService.addOrUpdateUserSettings(
         currentUser._id.toString(),
@@ -34,14 +34,15 @@ export class UserSettingsController {
         file
       );
 
-      res.status(200).json(settings);
+      res.status(200).json(settings);      
     } catch (error) {
+      logger.error('addOrUpdateSettings error:', { error });
       this.handleError(error, res);
     }
   };
 
   private handleError(error: unknown, res: Response): void {
-    // logger.error('UserSettingsController error:', { error });
+    logger.error('UserSettingsController error:', { error });
     res.status(500).json({ error: 'Internal server error' });
   }
 }
