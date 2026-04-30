@@ -1,6 +1,8 @@
 export enum CurrencyEnum {
-  naira = "NGN",
-  dollar="USD",
-  pound = "GBP",
-  euro = "EUR",
+  ngn = "NGN",
+  usd ="USD",
+  kes = "KES",
+  cfa = "CFA",
+  cdf = "CDF",
+  pi = "Pi"
 }

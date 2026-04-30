@@ -193,6 +193,7 @@ export async function addOrUpdateUserSettings(
   } catch (error: any) {
 
     // Rollback newly uploaded image if DB failed
+    logger.error('Error in addOrUpdateUserSettings', { userId, payload, error });
     if (newImageUrl) {
       await deleteFromCloudinary([newImageUrl]);
     }

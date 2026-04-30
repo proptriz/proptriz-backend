@@ -75,15 +75,15 @@ interface RawLlmProperty {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CURRENCY_MAP: Record<string, NormalisedProperty["currency"]> = {
-  NGN: CurrencyEnum.naira, NAIRA: CurrencyEnum.naira, "₦": CurrencyEnum.naira,
-  USD: CurrencyEnum.dollar,  DOLLAR: CurrencyEnum.dollar, "$": CurrencyEnum.dollar,
-  GBP: CurrencyEnum.pound,  POUND: CurrencyEnum.pound,  "£": CurrencyEnum.pound,
-  EUR: CurrencyEnum.euro,  EURO: CurrencyEnum.euro,   "€": CurrencyEnum.euro,
+  NGN: CurrencyEnum.ngn, NAIRA: CurrencyEnum.ngn, "₦": CurrencyEnum.ngn,
+  USD: CurrencyEnum.usd,  DOLLAR: CurrencyEnum.usd, "$": CurrencyEnum.usd,
+  GBP: CurrencyEnum.kes,  POUND: CurrencyEnum.kes,  "KSh": CurrencyEnum.kes,
+  EUR: CurrencyEnum.cdf,  EURO: CurrencyEnum.cdf,   "CDF": CurrencyEnum.cdf,
 };
 
 function normCurrency(raw: string | null | undefined): NormalisedProperty["currency"] {
-  if (!raw) return CurrencyEnum.naira;
-  return CURRENCY_MAP[raw.trim().toUpperCase()] ?? CurrencyEnum.naira;
+  if (!raw) return CurrencyEnum.ngn;
+  return CURRENCY_MAP[raw.trim().toUpperCase()] ?? CurrencyEnum.ngn;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
