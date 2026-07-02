@@ -244,8 +244,9 @@ async function callCloudflareAI(model: string, messages: object[], attempt = 1):
       headers: { Authorization: `Bearer ${env.CLOUDFLARE_AI_WORKERS_TOKEN}` },
       body: JSON.stringify({
         messages,
-        max_tokens: 1024,
-        thinking: { type: "disabled" },
+        max_tokens: 4096,
+        chat_template_kwargs: { enable_thinking: false },
+        reasoning_effort: null,
       }),
     });
 
@@ -255,12 +256,15 @@ async function callCloudflareAI(model: string, messages: object[], attempt = 1):
     }
 
     const json = await res.json();
-    const response: unknown =
-      json?.result?.choices?.[0]?.message?.content ?? json?.result?.response;
+    const message = json?.result?.choices?.[0]?.message;
+    let response: unknown = message?.content ?? json?.result?.response;
 
     if (typeof response !== "string" || !response.trim()) {
+      const finishReason = json?.result?.choices?.[0]?.finish_reason;
       throw new Error(
-        `Cloudflare AI returned an empty or unexpected response shape. Raw JSON: ${JSON.stringify(json).slice(0, 500)}`
+        `Model returned null content (finish_reason: ${finishReason}). ` +
+        `Likely exhausted max_tokens on reasoning despite enable_thinking:false. ` +
+        `Raw JSON: ${JSON.stringify(json).slice(0, 800)}`
       );
     }
 
