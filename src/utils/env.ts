@@ -22,4 +22,5 @@ export const env = {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
     CLOUDFLARE_AI_WORKERS_TOKEN: process.env.CLOUDFLARE_AI_WORKERS_TOKEN || '',
     CLOUDFLARE_AI_WORKERS_ACCOUNT_ID: process.env.CLOUDFLARE_AI_WORKERS_ACCOUNT_ID || '',
+    CLOUDFLARE_AI_MODEL: process.env.CLOUDFLARE_AI_MODEL || '@cf/zai-org/glm-4.7-flash',
 }
