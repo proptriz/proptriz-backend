@@ -30,4 +30,4 @@ export const env = {
     POSTCODE_PUBLIC_SEGMENTS: process.env.POSTCODE_PUBLIC_SEGMENTS || '',
     POSTCODE_VERIFY_MAX_M: process.env.POSTCODE_VERIFY_MAX_M || '',
     NOMINATIM_USER_AGENT: process.env.NOMINATIM_USER_AGENT || '',
-}
+}

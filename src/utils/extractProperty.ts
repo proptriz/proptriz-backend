@@ -235,31 +235,48 @@ function normalise(raw: RawLlmProperty, originalDescription: string): Normalised
 // CLOUDFLARE WORKERS AI CALL
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function callCloudflareAI(model: string, messages: object[]): Promise<string> {
-  const url =
-    `https://api.cloudflare.com/client/v4/accounts/` +
-    `${env.CLOUDFLARE_AI_WORKERS_ACCOUNT_ID}/ai/run/${model}`;
+async function callCloudflareAI(model: string, messages: object[], attempt = 1): Promise<string> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_AI_WORKERS_ACCOUNT_ID}/ai/run/${model}`;
 
-  const res = await fetch(url, {
-    method:  "POST",
-    headers: { Authorization: `Bearer ${env.CLOUDFLARE_AI_WORKERS_TOKEN}` },
-    body:    JSON.stringify({ messages }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.CLOUDFLARE_AI_WORKERS_TOKEN}` },
+      body: JSON.stringify({
+        messages,
+        max_tokens: 4096,
+        chat_template_kwargs: { enable_thinking: false },
+        reasoning_effort: null,
+      }),
+    });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Cloudflare AI returned HTTP ${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Cloudflare AI returned HTTP ${res.status}: ${text}`);
+    }
+
+    const json = await res.json();
+    const message = json?.result?.choices?.[0]?.message;
+    let response: unknown = message?.content ?? json?.result?.response;
+
+    if (typeof response !== "string" || !response.trim()) {
+      const finishReason = json?.result?.choices?.[0]?.finish_reason;
+      throw new Error(
+        `Model returned null content (finish_reason: ${finishReason}). ` +
+        `Likely exhausted max_tokens on reasoning despite enable_thinking:false. ` +
+        `Raw JSON: ${JSON.stringify(json).slice(0, 800)}`
+      );
+    }
+
+return response;
+  } catch (err) {
+    const isNetworkError = err instanceof TypeError && err.message === "fetch failed";
+    if (isNetworkError && attempt < 3) {
+      await new Promise((r) => setTimeout(r, attempt * 500));
+      return callCloudflareAI(model, messages, attempt + 1);
+    }
+    throw err;
   }
-
-  const json = await res.json();
-
-  // result.response is the LLM text output
-  const response: unknown = json?.result?.response;
-  if (typeof response !== "string" || !response.trim()) {
-    throw new Error("Cloudflare AI returned an empty or unexpected response shape.");
-  }
-
-  return response;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -307,7 +324,7 @@ function extractJson(text: string): RawLlmProperty {
  * Throws on network failure, empty AI response, or JSON parse error.
  */
 async function runExtractProperty(description: string): Promise<NormalisedProperty> {
-  const rawText = await callCloudflareAI("@cf/meta/llama-3-8b-instruct", [
+  const rawText = await callCloudflareAI(env.CLOUDFLARE_AI_MODEL, [
     {
       role: "system",
       content: `
