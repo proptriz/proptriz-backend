@@ -4,7 +4,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../config/loggingConfig';
 import {
-  AlertLocale, ListingSummary, alertCopy, alertSettingsUrl, appUrl, editListingUrl, listingUrl,
+  AlertLocale, ListingSummary, alertCopy, alertSettingsUrl, appUrl, editListingUrl, inboxUrl, listingUrl,
 } from './notificationCopy';
 
 // ─── Transporter singleton ───────────────────────────────────────────────────
@@ -163,7 +163,7 @@ function listingCard(listing: ListingSummary): string {
 
 /** A new listing matches what the person is looking for. */
 export async function emailNewListing(opts: {
-  to: string; username: string; listing: ListingSummary; searchName?: string; locale?: AlertLocale;
+  to: string; username: string; listing: ListingSummary; searchName?: string; locale?: AlertLocale; url?: string;
 }): Promise<void> {
   const copy = alertCopy(opts.locale);
   await sendEmail({
@@ -174,14 +174,14 @@ export async function emailNewListing(opts: {
       ${paragraph(copy.greeting(opts.username))}
       ${paragraph(copy.newListing.intro(opts.searchName))}
       ${listingCard(opts.listing)}
-      ${ctaButton(copy.viewListing, listingUrl(opts.listing.id), opts.locale)}
+      ${ctaButton(copy.viewListing, opts.url ?? listingUrl(opts.listing.id), opts.locale)}
     `, opts.locale),
   });
 }
 
 /** Sent to the agent/owner when someone asks for the contact on their listing. */
 export async function emailListingEnquiry(opts: {
-  to: string; username: string; listing: ListingSummary; enquirerName: string; locale?: AlertLocale;
+  to: string; username: string; listing: ListingSummary; enquirerName: string; locale?: AlertLocale; url?: string;
 }): Promise<void> {
   const copy = alertCopy(opts.locale);
   await sendEmail({
@@ -192,14 +192,14 @@ export async function emailListingEnquiry(opts: {
       ${paragraph(copy.greeting(opts.username))}
       ${paragraph(copy.enquiry.intro(opts.enquirerName, opts.listing))}
       ${listingCard(opts.listing)}
-      ${ctaButton(copy.viewListing, listingUrl(opts.listing.id), opts.locale)}
+      ${ctaButton(copy.viewListing, opts.url ?? listingUrl(opts.listing.id), opts.locale)}
     `, opts.locale),
   });
 }
 
 /** Sent to the agent/owner shortly before a listing expires. */
 export async function emailListingExpiring(opts: {
-  to: string; username: string; listing: ListingSummary; daysLeft: number; locale?: AlertLocale;
+  to: string; username: string; listing: ListingSummary; daysLeft: number; locale?: AlertLocale; url?: string;
 }): Promise<void> {
   const copy = alertCopy(opts.locale);
   await sendEmail({
@@ -210,7 +210,7 @@ export async function emailListingExpiring(opts: {
       ${paragraph(copy.greeting(opts.username))}
       ${paragraph(copy.expiring.intro(opts.listing, opts.daysLeft))}
       ${listingCard(opts.listing)}
-      ${ctaButton(copy.expiring.cta, editListingUrl(opts.listing.id), opts.locale)}
+      ${ctaButton(copy.expiring.cta, opts.url ?? editListingUrl(opts.listing.id), opts.locale)}
     `, opts.locale),
   });
 }
@@ -230,6 +230,63 @@ export async function emailWelcome(opts: { to: string; username: string; locale?
       ${paragraph(copy.greeting(opts.username))}
       ${paragraph(copy.welcome.intro)}
       ${ctaButton(copy.welcome.cta, appUrl('/'), opts.locale)}
+    `, opts.locale),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Generic alert and daily digest
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** One alert as its own email (title, text and one button). */
+export async function emailSingleAlert(opts: {
+  to: string; title: string; body: string; url: string; locale?: AlertLocale;
+}): Promise<void> {
+  const copy = alertCopy(opts.locale);
+  await sendEmail({
+    to: opts.to,
+    subject: opts.title,
+    html: emailTemplate(`
+      ${heading(opts.title)}
+      ${paragraph(opts.body)}
+      ${ctaButton(copy.digest.open, opts.url, opts.locale)}
+    `, opts.locale),
+  });
+}
+
+export interface DigestItem {
+  title: string;
+  body: string;
+  /** Tracked link for this alert. */
+  url: string;
+}
+
+/** The daily digest: unopened alerts in one email, at most one per person per day. */
+export async function emailDigest(opts: {
+  to: string; items: DigestItem[]; totalCount: number; locale?: AlertLocale;
+}): Promise<void> {
+  const copy = alertCopy(opts.locale);
+  const remaining = opts.totalCount - opts.items.length;
+
+  const rows = opts.items.map((item) => {
+    const safeUrl = escapeHtml(sanitizeUrl(item.url));
+    return `
+      <div style="border:1px solid ${BRAND.line};border-radius:12px;padding:14px 16px;margin:0 0 10px;">
+        <div style="font-size:15px;font-weight:bold;color:${BRAND.navy};">${escapeHtml(item.title)}</div>
+        <div style="font-size:14px;color:${BRAND.text};margin-top:4px;">${escapeHtml(item.body)}</div>
+        <div style="margin-top:8px;"><a href="${safeUrl}" style="color:${BRAND.teal};font-weight:bold;text-decoration:none;font-size:14px;">${escapeHtml(copy.digest.open)} →</a></div>
+      </div>`;
+  }).join('');
+
+  await sendEmail({
+    to: opts.to,
+    subject: copy.digest.subject(opts.totalCount),
+    html: emailTemplate(`
+      ${heading(copy.digest.heading)}
+      ${paragraph(copy.digest.intro(opts.totalCount))}
+      ${rows}
+      ${remaining > 0 ? paragraph(copy.digest.more(remaining), true) : ''}
+      ${ctaButton(copy.digest.openInbox, inboxUrl(), opts.locale)}
     `, opts.locale),
   });
 }

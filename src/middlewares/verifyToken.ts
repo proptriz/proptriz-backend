@@ -1,15 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { decodeUserToken } from "../helpers/jwt";
 import { IUser } from "../types";
-import { createHash, timingSafeEqual } from "crypto";
 import logger from "../config/loggingConfig";
-
-/** Constant-time string comparison (hashing first so lengths always match). */
-function safeEqual(a: string, b: string): boolean {
-  const ha = createHash("sha256").update(a).digest();
-  const hb = createHash("sha256").update(b).digest();
-  return timingSafeEqual(ha, hb);
-}
+import { safeEqual } from "../utils/safeEqual";
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -89,5 +82,34 @@ export const verifyAdminToken = (
   }
 
   logger.info("Admin credentials verified successfully.");
+  next();
+};
+
+/**
+ * Guards the scheduler entry points. The external scheduler sends the shared
+ * secret in the `x-job-secret` header (or as a Bearer token).
+ */
+export const verifyJobSecret = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const secret = process.env.JOBS_SECRET;
+  if (!secret) {
+    logger.error("JOBS_SECRET is not configured; scheduler endpoints are closed.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const header = req.headers["x-job-secret"];
+  const bearer = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice("Bearer ".length)
+    : undefined;
+  const provided = (Array.isArray(header) ? header[0] : header) ?? bearer;
+
+  if (!provided || !safeEqual(provided, secret)) {
+    logger.warn("Scheduler secret is missing or invalid.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   next();
 };

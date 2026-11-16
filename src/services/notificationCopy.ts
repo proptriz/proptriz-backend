@@ -56,6 +56,18 @@ interface AlertCopy {
     intro: string;
     cta: string;
   };
+  digest: {
+    subject: (count: number) => string;
+    heading: string;
+    intro: (count: number) => string;
+    more: (count: number) => string;
+    open: string;
+    openInbox: string;
+  };
+  test: {
+    title: string;
+    body: string;
+  };
 }
 
 const where = (l: ListingSummary) => (l.locationText ? ` · ${l.locationText}` : '');
@@ -103,6 +115,18 @@ const en: AlertCopy = {
     intro: 'Your account is ready. Search homes to rent or buy, save a search, and we will alert you when a matching property is listed.',
     cta: 'Start exploring',
   },
+  digest: {
+    subject: (count) => (count === 1 ? '1 new alert on Proptriz' : `${count} new alerts on Proptriz`),
+    heading: 'Your Proptriz alerts',
+    intro: (count) => (count === 1 ? 'You have 1 alert you have not opened yet.' : `You have ${count} alerts you have not opened yet.`),
+    more: (count) => (count === 1 ? 'and 1 more in your inbox' : `and ${count} more in your inbox`),
+    open: 'Open',
+    openInbox: 'Open my inbox',
+  },
+  test: {
+    title: 'Proptriz test alert',
+    body: 'Alerts are working. This is how new listings will reach you.',
+  },
 };
 
 const fr: AlertCopy = {
@@ -147,6 +171,18 @@ const fr: AlertCopy = {
     heading: 'Bienvenue sur Proptriz',
     intro: "Votre compte est prêt. Cherchez un logement à louer ou à acheter, enregistrez une recherche, et nous vous préviendrons dès qu'un bien correspondant sera publié.",
     cta: 'Commencer à explorer',
+  },
+  digest: {
+    subject: (count) => (count === 1 ? '1 nouvelle alerte sur Proptriz' : `${count} nouvelles alertes sur Proptriz`),
+    heading: 'Vos alertes Proptriz',
+    intro: (count) => (count === 1 ? "Vous avez 1 alerte que vous n'avez pas encore ouverte." : `Vous avez ${count} alertes que vous n'avez pas encore ouvertes.`),
+    more: (count) => (count === 1 ? 'et 1 autre dans votre boîte de réception' : `et ${count} autres dans votre boîte de réception`),
+    open: 'Ouvrir',
+    openInbox: 'Ouvrir ma boîte de réception',
+  },
+  test: {
+    title: 'Alerte test Proptriz',
+    body: "Les alertes fonctionnent. C'est ainsi que les nouvelles annonces vous parviendront.",
   },
 };
 
@@ -193,6 +229,18 @@ const sw: AlertCopy = {
     intro: 'Akaunti yako iko tayari. Tafuta nyumba za kupanga au kununua, hifadhi utafutaji, nasi tutakuarifu mali inayolingana itakapotangazwa.',
     cta: 'Anza kugundua',
   },
+  digest: {
+    subject: (count) => (count === 1 ? 'Arifa 1 mpya kwenye Proptriz' : `Arifa ${count} mpya kwenye Proptriz`),
+    heading: 'Arifa zako za Proptriz',
+    intro: (count) => (count === 1 ? 'Una arifa 1 ambayo bado hujaifungua.' : `Una arifa ${count} ambazo bado hujazifungua.`),
+    more: (count) => (count === 1 ? 'na 1 nyingine kwenye kikasha chako' : `na ${count} nyingine kwenye kikasha chako`),
+    open: 'Fungua',
+    openInbox: 'Fungua kikasha changu',
+  },
+  test: {
+    title: 'Arifa ya majaribio ya Proptriz',
+    body: 'Arifa zinafanya kazi. Hivi ndivyo matangazo mapya yatakavyokufikia.',
+  },
 };
 
 const COPY: Record<AlertLocale, AlertCopy> = { en, fr, sw };
@@ -213,3 +261,22 @@ export function appUrl(path = '/'): string {
 export const listingUrl = (listingId: string) => appUrl(`/property/details/${encodeURIComponent(listingId)}`);
 export const editListingUrl = (listingId: string) => appUrl(`/property/edit/${encodeURIComponent(listingId)}`);
 export const alertSettingsUrl = () => appUrl('/profile/notifications');
+export const inboxUrl = () => appUrl('/notifications');
+
+/**
+ * Link that records the open and then forwards to the alert's destination.
+ * It lives on the public site (/n/:id) so the mobile apps can claim it later.
+ */
+export const trackedUrl = (notificationId: string, channel: 'push' | 'email') =>
+  appUrl(`/n/${encodeURIComponent(notificationId)}?c=${channel}`);
+
+/** True when `url` is an http(s) link on the public site. Alerts never lead anywhere else. */
+export function isAppUrl(url: string): boolean {
+  try {
+    const target = new URL(url);
+    const base = new URL(appUrl('/'));
+    return (target.protocol === 'https:' || target.protocol === 'http:') && target.origin === base.origin;
+  } catch {
+    return false;
+  }
+}

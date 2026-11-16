@@ -11,7 +11,8 @@ import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
 import settingsRoutes from "../routes/userSettings.routes";
 import landmarkRouter from "../routes/landmark.routes";
-import notificationRoutes from "../routes/notification.routes";
+import notificationRoutes, { trackedLinkRoutes } from "../routes/notification.routes";
+import internalRoutes from "../routes/internal.routes";
 
 dotenv.config();
 
@@ -50,6 +51,8 @@ app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/api/v1/landmarks", landmarkRouter);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/n", trackedLinkRoutes);
+app.use("/api/v1/internal", internalRoutes);
 app.use("/", homeRoutes);
 
 export default app

@@ -1,45 +1,75 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, Types } from "mongoose";
 
 // ─── Interface ────────────────────────────────────────────────────────────────
 
+export type DevicePlatform = "web" | "android" | "ios";
+
 export interface IDeviceToken extends Document {
-  userId: string;       // User._id as a string
+  user: Types.ObjectId;
   fcmToken: string;
-  platform: "web" | "android" | "ios";
+  platform: DevicePlatform;
+  /** Last time this device registered or refreshed its token. */
+  lastSeenAt: Date;
+  appVersion?: string;
+  language?: string;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** A device counts as live for push when it was seen within this many days. */
+export const LIVE_DEVICE_DAYS = 30;
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 const DeviceTokenSchema = new Schema<IDeviceToken>(
   {
-    userId:   { type: String, required: true, index: true },
-    fcmToken: { type: String, required: true, unique: true },
-    platform: { type: String, enum: ["web", "android", "ios"], default: "web" },
+    user:       { type: Schema.Types.ObjectId, ref: "User", required: true },
+    fcmToken:   { type: String, required: true, unique: true },
+    platform:   { type: String, enum: ["web", "android", "ios"], default: "web" },
+    lastSeenAt: { type: Date, required: true, default: () => new Date() },
+    appVersion: { type: String, maxlength: 40 },
+    language:   { type: String, maxlength: 10 },
   },
   { timestamps: true }
 );
 
-// ─── Helpers (used by the route handlers) ────────────────────────────────────
+DeviceTokenSchema.index({ user: 1, lastSeenAt: -1 });
 
-/** Upsert a token for a user. Returns true if it was newly inserted. */
+export const DeviceToken = model<IDeviceToken>("DeviceToken", DeviceTokenSchema);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export interface DeviceInfo {
+  platform?: DevicePlatform;
+  appVersion?: string;
+  language?: string;
+}
+
+/**
+ * Register or refresh a device for a user. A token belongs to one device, so
+ * if another account signs in on the same device the token moves to it.
+ * Returns true if the token was newly inserted.
+ */
 export async function upsertToken(
   userId: string,
   fcmToken: string,
-  platform: IDeviceToken["platform"] = "web"
+  info: DeviceInfo = {}
 ): Promise<boolean> {
-  const result = await DeviceToken.updateOne(
-    { fcmToken },
-    { $set: { userId, platform } },
-    { upsert: true }
-  );
+  const set: Record<string, unknown> = {
+    user: new Types.ObjectId(userId),
+    platform: info.platform ?? "web",
+    lastSeenAt: new Date(),
+  };
+  if (info.appVersion) set.appVersion = info.appVersion;
+  if (info.language) set.language = info.language;
+
+  const result = await DeviceToken.updateOne({ fcmToken }, { $set: set }, { upsert: true });
   return result.upsertedCount > 0;
 }
 
 /** Remove one of a user's own tokens (e.g. on logout). Never touches another user's device. */
 export async function removeTokenForUser(userId: string, fcmToken: string): Promise<void> {
-  await DeviceToken.deleteOne({ fcmToken, userId });
+  await DeviceToken.deleteOne({ fcmToken, user: new Types.ObjectId(userId) });
 }
 
 /** Bulk-remove stale tokens returned by FCM after a multicast send. */
@@ -48,19 +78,12 @@ export async function pruneStaleTokens(tokens: string[]): Promise<void> {
   await DeviceToken.deleteMany({ fcmToken: { $in: tokens } });
 }
 
-/** Get all active FCM tokens for a user. */
-export async function getTokensForUser(userId: string): Promise<string[]> {
-  const docs = await DeviceToken.find({ userId }, "fcmToken").lean();
-  return docs.map((d) => d.fcmToken);
-}
-
-/** Get tokens for multiple users in one query. */
-export async function getTokensForUsers(userIds: string[]): Promise<string[]> {
+/** FCM tokens of a user's live devices (seen in the last 30 days). */
+export async function getTokensForUser(userId: string, now: Date = new Date()): Promise<string[]> {
+  const liveSince = new Date(now.getTime() - LIVE_DEVICE_DAYS * 24 * 60 * 60 * 1000);
   const docs = await DeviceToken.find(
-    { userId: { $in: userIds } },
+    { user: new Types.ObjectId(userId), lastSeenAt: { $gte: liveSince } },
     "fcmToken"
   ).lean();
   return docs.map((d) => d.fcmToken);
 }
-
-export const DeviceToken = model<IDeviceToken>("DeviceToken", DeviceTokenSchema);
