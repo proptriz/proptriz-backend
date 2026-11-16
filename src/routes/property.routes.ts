@@ -2,11 +2,12 @@ import { Router } from "express";
 import PropertyController from "../controllers/propertyController";
 import { verifyToken } from "../middlewares/verifyToken";
 import upload from "../utils/multer";
-import { propertyValidations } from "../middlewares/validation";
+import { propertyValidations, handleValidationErrors } from "../middlewares/validation";
 
 const propertyRoutes = Router();
 
 propertyRoutes.get("/all", PropertyController.getAllProperties);
+propertyRoutes.get("/locations/suggest", PropertyController.suggestLocations);
 propertyRoutes.get("/:pid", propertyValidations.getById, PropertyController.getPropertyById);
 propertyRoutes.get("/:id/seo", propertyValidations.getById, PropertyController.getPropertyById);
 propertyRoutes.get("/user/nearest-prop", PropertyController.getNearestProperties);
@@ -18,4 +19,7 @@ propertyRoutes.delete("/delete/:pid", verifyToken, PropertyController.deleteProp
 propertyRoutes.post("/image/delete", verifyToken, PropertyController.deletePropertyImage);
 propertyRoutes.put("/image/update", verifyToken, upload.single('image'), PropertyController.updatePropertyImage);
 propertyRoutes.post("/ai/extract", verifyToken, PropertyController.extractPropertyData);
-export default propertyRoutes;
+// Postcode reveal-on-contact (see src/postcode/README.md)
+propertyRoutes.post("/:pid/contact", verifyToken, propertyValidations.getById, handleValidationErrors, PropertyController.recordContact);
+propertyRoutes.get("/:pid/postcode", verifyToken, propertyValidations.getById, handleValidationErrors, PropertyController.getPostcode);
+export default propertyRoutes;

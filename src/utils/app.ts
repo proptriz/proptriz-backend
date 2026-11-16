@@ -11,6 +11,7 @@ import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
 import settingsRoutes from "../routes/userSettings.routes";
 import landmarkRouter from "../routes/landmark.routes";
+import { postcodeRouter } from "../postcode";
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use('/api/v1/payments', paymentsRouter);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/api/v1/landmarks", landmarkRouter);
+app.use("/api/v1/postcode", postcodeRouter);
 app.use("/", homeRoutes);
 
 export default app

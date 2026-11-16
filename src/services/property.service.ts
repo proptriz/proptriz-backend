@@ -10,6 +10,20 @@ import { PropertyStatusEnum } from "../models/enums/PropertyStatusEnum";
 import { decodeCursor } from "../helpers/cursor";
 import { LeanWithId } from "../helpers/leanWithId";
 import paginateWithCursor from "../helpers/paginateWithCursor";
+import PropertyContact from "../models/propertyContact";
+import { buildPropertyLocation, ladderFilters, parseTypedPrefix, placeLadderFilters } from "../postcode";
+import type { MatchTier, TierFilter } from "../postcode";
+import { Types } from "mongoose";
+
+const COLLOCATED_MIN_FOR_LADDER = 2; // fewer same-area matches than this -> fall through to the next tier
+const hasRealPin = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  !(lat === 0 && lng === 0) &&
+  !(lat === 9.082 && lng === 8.6753); // the app's fallback position, not a pin the user chose
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const defined = <T extends Record<string, unknown>>(o: T) =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
 const PAGE_LIMIT = 10;
 
@@ -138,9 +152,24 @@ class PropertyService {
       const duration = Math.max(Number(propertyData.duration) || 3, 1); //in weeks
       const expiredBy = new Date(now.getTime() + duration * 7 * 24 * 60 * 60 * 1000);
 
+      // ✅ Country + NIPOST postcode (Nigeria only). Never blocks publishing.
+      const [lng, lat] = prop_cord;
+      const hasPin = !!(propertyData.latitude && propertyData.longitude) && hasRealPin(lat, lng);
+      const location = hasPin
+        ? await buildPropertyLocation({
+            lat,
+            lng,
+            country: propertyData.country,
+            address: propertyData.address,
+            typedPostcode: propertyData.postcode_input,
+          })
+        : {};
+
       // ✅ Create base property object
+      const { postcode_input: _postcodeInput, country: _country, postcode: _clientPostcode, place: _clientPlace, ...cleanData } = propertyData;
       const property = new Property({
-        ...propertyData,
+        ...cleanData,
+        ...defined(location as Record<string, unknown>),
         period: propertyData.listed_for === ListForEnum.rent ? propertyData.period : null,
         price: parseFloat(propertyData.price),
         duration: duration,
@@ -245,6 +274,12 @@ class PropertyService {
             period: 1,
             average_rating: 1,
             createdAt: 1,
+            "postcode.public_code": 1,
+            "postcode.verified": 1,
+            "place.verified": 1,
+            "place.area": 1,
+            "place.subregion": 1,
+            "place.region": 1,
             longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
             latitude: { $arrayElemAt: ["$map_location.coordinates", 1] }
           }
@@ -359,15 +394,25 @@ class PropertyService {
   }
 
 
+  /**
+   * Listings near a property. `tier` picks how wide to look:
+   *   auto (default)  same area -> district -> sub-region (LGA) -> region (state) -> distance
+   *   area | district | subregion | region   only that tier (empty list if nothing matches)
+   *   distance        plain nearest, as before
+   * Nigerian listings use postcode segments; other countries use stored place names.
+   */
   async getCollocatedProperties(
     propertyId: string,
-    limit: number = 4
-  ): Promise<any[]> {
+    limit: number = 4,
+    tier: MatchTier | "auto" = "auto"
+  ): Promise<{ properties: any[]; match_tier: MatchTier; tiers: MatchTier[] }> {
     try {
       const now = new Date();
 
-      // 1️⃣ Find the property to get its coordinates
-      const targetProperty = await Property.findById(propertyId).select("map_location").lean();
+      // 1️⃣ Find the property to get its coordinates (+ postcode segments, which are select:false)
+      const targetProperty = await Property.findById(propertyId)
+        .select("map_location country place +postcode.code +postcode.segments")
+        .lean();
 
       if (!targetProperty || !targetProperty.map_location?.coordinates) {
         throw new Error("Property location not found");
@@ -375,48 +420,200 @@ class PropertyService {
 
       const [lng, lat] = targetProperty.map_location.coordinates;
 
-      // 2️⃣ Run geo aggregation to find nearby properties
-      const pipeline: PipelineStage[] = [
-        {
-          $geoNear: {
-            near: { type: "Point", coordinates: [lng, lat] },
-            distanceField: "distance",
-            spherical: true,
-            key: "map_location",
+      const projection = {
+        _id: 1,
+        title: 1,
+        currency: 1,
+        price: 1,
+        category: 1,
+        address: 1,
+        banner: 1,
+        listed_for: 1,
+        period: 1,
+        username: 1,
+        distance: 1,
+        "postcode.public_code": 1,
+        "postcode.verified": 1,
+        "place.verified": 1,
+        longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
+        latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
+      };
 
-            query: { 
-              _id: { $ne: targetProperty._id },
-              status: PropertyStatusEnum.available,
-              expired_by: { $gt: now }, 
-            }, // exclude itself and return only available, non-expired properties
+      const nearest = (query: Record<string, unknown>) =>
+        Property.aggregate([
+          {
+            $geoNear: {
+              near: { type: "Point", coordinates: [lng, lat] },
+              distanceField: "distance",
+              spherical: true,
+              key: "map_location",
+              query: {
+                ...query,
+                _id: { $ne: targetProperty._id },
+                status: PropertyStatusEnum.available,
+                expired_by: { $gt: now },
+              },
+            },
           },
-        },
-        { $sort: { distance: 1 } },
-        { $limit: limit },
-        {
-          $project: {
-            _id: 1,
-            title: 1,
-            currency: 1,
-            price: 1,
-            category: 1,
-            address: 1,
-            banner: 1,
-            listed_for: 1,
-            period: 1,
-            distance: 1,
-            username: 1,
-            longitude: { $arrayElemAt: ["$map_location.coordinates", 0] },
-            latitude: { $arrayElemAt: ["$map_location.coordinates", 1] },
-          },
-        },
-      ];
+          { $sort: { distance: 1 } },
+          { $limit: limit },
+          { $project: projection },
+        ] as PipelineStage[]).exec();
 
-      const nearestProperties = await Property.aggregate(pipeline).exec();
-      return nearestProperties;
+      // 2️⃣ Tiers this listing supports: postcode segments (Nigeria) or place names (anywhere)
+      const ladder: TierFilter[] =
+        targetProperty.country === "NG" && targetProperty.postcode?.code
+          ? ladderFilters(targetProperty.postcode.code)
+          : placeLadderFilters({ country: targetProperty.country, ...(targetProperty.place ?? {}) });
+      const tiers: MatchTier[] = [...ladder.map((l) => l.tier), "distance"];
+
+      if (tier !== "auto" && tier !== "distance") {
+        const wanted = ladder.find((l) => l.tier === tier);
+        return { properties: wanted ? await nearest(wanted.filter) : [], match_tier: tier, tiers };
+      }
+
+      if (tier === "auto") {
+        for (const [i, step] of ladder.entries()) {
+          const found = await nearest(step.filter);
+          const last = i === ladder.length - 1;
+          if (found.length >= COLLOCATED_MIN_FOR_LADDER || (last && found.length > 0)) {
+            return { properties: found, match_tier: step.tier, tiers };
+          }
+        }
+      }
+
+      // 3️⃣ Plain nearest
+      return { properties: await nearest({}), match_tier: "distance", tiers };
     } catch (error: any) {
       throw new Error(`Failed to find nearest properties: ${error.message}`);
     }
+  }
+
+  /**
+   * Suggestions for the search box, built from our own listings so every row has results.
+   *   "LA 11 U"  -> postcode prefixes (Nigeria) with listing counts
+   *   "Westl"    -> areas / sub-regions / regions by name (any country) with listing counts
+   */
+  async suggestLocations(q: string, limit = 8): Promise<any[]> {
+    const now = new Date();
+    const live = { status: PropertyStatusEnum.available, expired_by: { $gt: now } };
+    const typed = parseTypedPrefix(q);
+
+    if (typed) {
+      const order = ["state", "lga", "district", "area", "unit"] as const;
+      const tierOf = { state: "region", lga: "subregion", district: "district", area: "area", unit: "unit" } as const;
+      const done = order.filter((k) => typed.complete[k]);
+      const groupKey = typed.partialKey ?? order[done.length];
+      if (!groupKey || groupKey === "unit") {
+        // A full area (or unit) was typed: one row for that area
+        const [step] = ladderFilters(done.slice(0, 4).map((k) => typed.complete[k]).join("-"));
+        if (!step) return [];
+        const count = await Property.countDocuments({ ...live, ...step.filter });
+        const sample = await Property.findOne({ ...live, ...step.filter }).select("place").lean();
+        return count
+          ? [{
+              kind: "postcode",
+              tier: step.tier,
+              code: done.slice(0, 4).map((k) => typed.complete[k]).join("-"),
+              label: [sample?.place?.area, sample?.place?.subregion, sample?.place?.region].filter(Boolean).join(", "),
+              count,
+              country: "NG",
+            }]
+          : [];
+      }
+
+      const match: Record<string, unknown> = { ...live, country: "NG" };
+      for (const k of done) match[`postcode.segments.${k}`] = typed.complete[k];
+      if (typed.partial) match[`postcode.segments.${groupKey}`] = { $regex: `^${escapeRegex(typed.partial)}` };
+      else match[`postcode.segments.${groupKey}`] = { $exists: true };
+
+      const rows = await Property.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: `$postcode.segments.${groupKey}`,
+            count: { $sum: 1 },
+            region: { $first: "$place.region" },
+            subregion: { $first: "$place.subregion" },
+          },
+        },
+        { $sort: { count: -1, _id: 1 } },
+        { $limit: limit },
+      ]).exec();
+
+      const children = rows.map((r) => ({
+        kind: "postcode",
+        tier: tierOf[groupKey],
+        code: [...done.map((k) => typed.complete[k]), r._id].join("-"),
+        label: (groupKey === "state" ? [r.region] : [r.subregion, r.region]).filter(Boolean).join(", "),
+        count: r.count,
+        country: "NG",
+      }));
+
+      // The prefix typed so far is itself a choice ("LA-11" = the whole LGA)
+      const own: any[] = [];
+      if (done.length && !typed.partial) {
+        const total = children.reduce((n, c) => n + c.count, 0);
+        const first = rows[0];
+        if (total) {
+          own.push({
+            kind: "postcode",
+            tier: tierOf[done[done.length - 1]],
+            code: done.map((k) => typed.complete[k]).join("-"),
+            label: (done.length === 1 ? [first?.region] : [first?.subregion, first?.region]).filter(Boolean).join(", "),
+            count: await Property.countDocuments(
+              Object.fromEntries(Object.entries(match).filter(([k]) => k !== `postcode.segments.${groupKey}`))
+            ),
+            country: "NG",
+          });
+        }
+      }
+
+      // Two letters could be a state code or the start of a name ("La" -> Lagos, Lamu...)
+      const names = q.trim().length === 2 ? await this.suggestByName(q, limit) : [];
+      return [...own, ...children, ...names].slice(0, limit);
+    }
+
+    return this.suggestByName(q, limit);
+  }
+
+  private async suggestByName(q: string, limit: number): Promise<any[]> {
+    const now = new Date();
+    const live = { status: PropertyStatusEnum.available, expired_by: { $gt: now } };
+
+    // Names: neighbourhood, then sub-region (LGA / county), then region (state)
+    const rx = { $regex: `^${escapeRegex(q.trim())}`, $options: "i" };
+    const levels = [
+      { tier: "area", field: "place.area", id: { country: "$country", region: "$place.region", subregion: "$place.subregion", area: "$place.area" } },
+      { tier: "subregion", field: "place.subregion", id: { country: "$country", region: "$place.region", subregion: "$place.subregion" } },
+      { tier: "region", field: "place.region", id: { country: "$country", region: "$place.region" } },
+    ] as const;
+
+    const groups = await Promise.all(
+      levels.map((l) =>
+        Property.aggregate([
+          { $match: { ...live, [l.field]: rx } },
+          { $group: { _id: l.id, count: { $sum: 1 }, country_name: { $first: "$place.country_name" } } },
+          { $sort: { count: -1 } },
+          { $limit: limit },
+        ]).exec().then((rows) =>
+          rows.map((r) => ({
+            kind: "place",
+            tier: l.tier,
+            country: r._id.country,
+            region: r._id.region,
+            subregion: r._id.subregion,
+            area: r._id.area,
+            name: r._id.area ?? r._id.subregion ?? r._id.region,
+            label: [r._id.area ? r._id.subregion : undefined, r._id.area || r._id.subregion ? r._id.region : r.country_name]
+              .filter(Boolean)
+              .join(", "),
+            count: r.count,
+          }))
+        )
+      )
+    );
+    return groups.flat().filter((g) => g.country).slice(0, limit);
   }
 
   // Get a list of properties based on a filter
@@ -503,11 +700,44 @@ class PropertyService {
         duration = durationWeeks;
       }
 
+      // ✅ Re-resolve country/postcode only when the pin moved or a postcode was typed
+      // `postcode` and `place` are server-owned. The edit form sends the whole listing back, including
+      // the masked public postcode, which must never overwrite the stored one.
+      const { postcode_input, country: providedCountry, postcode: _clientPostcode, place: _clientPlace, match_tier: _tier, ...rest } =
+        updateData as any;
+      const newCoords: number[] | undefined = rest.map_location?.coordinates;
+      const oldCoords = property.map_location?.coordinates ?? [];
+      const validCoords = Array.isArray(newCoords) && newCoords.length === 2 && newCoords.every(Number.isFinite);
+      if (!validCoords) delete rest.map_location; // controller sends NaN coords when the form has none
+      const pinMoved =
+        validCoords &&
+        (Math.abs(newCoords![0] - (oldCoords[0] ?? NaN)) > 1e-5 || Math.abs(newCoords![1] - (oldCoords[1] ?? NaN)) > 1e-5);
+
+      // A listing saved before this feature has no `place` yet: fill it on its next edit.
+      const addressChanged = typeof rest.address === "string" && rest.address !== property.address;
+      const needsLocation = pinMoved || !!postcode_input || !property.place || (addressChanged && property.country !== "NG");
+
+      let locationPatch: Record<string, unknown> = {};
+      if (needsLocation) {
+        const [lng, lat] = validCoords ? newCoords! : oldCoords;
+        if (hasRealPin(lat, lng)) {
+          locationPatch = defined(
+            (await buildPropertyLocation({
+              lat,
+              lng,
+              country: providedCountry,
+              address: rest.address ?? property.address,
+              typedPostcode: postcode_input,
+            })) as Record<string, unknown>
+          );
+        }
+      }
+
       const updatedProperty = await Property.findByIdAndUpdate(
         propertyId,
-        { ...updateData, 
-          period: updateData.listed_for === ListForEnum.rent ? updateData.period : null,
-          price: parseFloat(updateData.price),
+        { ...rest, ...locationPatch, 
+          period: rest.listed_for === ListForEnum.rent ? rest.period : null,
+          price: parseFloat(rest.price),
           duration: duration,
           expired_by: expiredBy,
           updatedAt: new Date() 
@@ -523,6 +753,49 @@ class PropertyService {
     } catch (error: any) {
       throw new Error(`Failed to update property with ID ${propertyId}: ${error.message}`);
     }
+  }
+
+  /**
+   * Records that a user reached out (Call / Email / Chat) and returns the full postcode.
+   * The owner always sees their own code and is never recorded as a lead.
+   */
+  async recordContact(
+    propertyId: string,
+    authUser: IUser,
+    channel: "call" | "email" | "chat"
+  ): Promise<{ postcode: string | null; owner: boolean }> {
+    const property = await Property.findById(propertyId).select("user +postcode.code").lean();
+    if (!property) throw new Error("Property not found");
+
+    const owner = String(property.user) === String(authUser._id);
+    if (!owner) {
+      await PropertyContact.updateOne(
+        { property: property._id, user: authUser._id, channel },
+        { $setOnInsert: { property: property._id, user: authUser._id, channel } },
+        { upsert: true }
+      );
+    }
+    return { postcode: property.postcode?.code ?? null, owner };
+  }
+
+  /** Full postcode for the owner, or for a user who has already contacted the agent. */
+  async getFullPostcode(propertyId: string, authUser: IUser): Promise<{ postcode: string | null } | null> {
+    const property = await Property.findById(propertyId).select("user +postcode.code").lean();
+    if (!property) throw new Error("Property not found");
+
+    const owner = String(property.user) === String(authUser._id);
+    const contacted = owner || !!(await PropertyContact.exists({ property: property._id, user: authUser._id }));
+    if (!contacted) return null;
+    return { postcode: property.postcode?.code ?? null };
+  }
+
+  /** Lead count per property for the owner's dashboard (optional helper). */
+  async countContacts(propertyIds: Types.ObjectId[]): Promise<Record<string, number>> {
+    const rows = await PropertyContact.aggregate<{ _id: Types.ObjectId; n: number }>([
+      { $match: { property: { $in: propertyIds } } },
+      { $group: { _id: "$property", n: { $sum: 1 } } },
+    ]);
+    return Object.fromEntries(rows.map((r) => [String(r._id), r.n]));
   }
 
   async deleteUserProperty(propertyId: string, authUser: IUser): Promise<void> {

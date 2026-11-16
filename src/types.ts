@@ -4,6 +4,7 @@ import { CurrencyEnum } from "./models/enums/CurrencyEnum";
 import { LeanWithId } from "./helpers/leanWithId";
 import { UserType } from "./models/user";
 import { LandmarkCategoryEnum } from "./models/enums/LandmarkCategoryEnum";
+import { PropertyPlace, PropertyPostcode } from "./postcode/types";
 
 export interface BaseDocument extends Document {
   _id: Types.ObjectId;
@@ -106,6 +107,9 @@ export interface IProperty extends BaseDocument {
     coordinates: [number, number];
   };
   features?: string[];
+  country?: string; // ISO 3166-1 alpha-2 of the pin
+  postcode?: PropertyPostcode; // NIPOST postcode (Nigeria only)
+  place?: PropertyPlace; // state / LGA / area names for the pin (any country)
   status: string; // (available, sold, unavailable, rented)
 };
 
@@ -142,4 +146,4 @@ export interface ILandmark extends Document {
   };
   createdAt:    Date;
   updatedAt:    Date;
-}
+}
