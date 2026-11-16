@@ -201,7 +201,7 @@ class PropertyService {
       // populate user with its _id so we can lookup settings by user id
       const property = await Property.findById(propertyId)
         .populate('user', 'username _id')
-        .lean();
+        .lean<IProperty>(); // plain object typed as the listing, not a Mongoose document
 
       if (!property || !property.user) return null;
 
@@ -212,7 +212,7 @@ class PropertyService {
         .lean();
 
       logger.info("fetched owner:", { userDetails });
-      return { property: property as IProperty, userDetails: userDetails as UserSettingsType | null };
+      return { property, userDetails: userDetails as UserSettingsType | null };
     } catch (error: any) {
       throw new Error(`Failed to retrieve property with ID ${propertyId}: ${error.message}`);
     }
@@ -656,14 +656,8 @@ class PropertyService {
       let propTotalCount = null;
 
       if (!cursor) {
-        const ownedPropertyIds = await Property.find(
-          { user: authUser._id },
-          { _id: 1 }
-        ).lean().exec();
-    
-        propTotalCount = await Property.countDocuments({
-          property: { $in: ownedPropertyIds.map(p => p._id) }
-        });
+        // Count this user's listings directly (the old filter used a `property` field that listings don't have)
+        propTotalCount = await Property.countDocuments({ user: authUser._id });
       }
 
       const paginated = paginateWithCursor(properties, PAGE_LIMIT);
@@ -743,7 +737,7 @@ class PropertyService {
           updatedAt: new Date() 
         },
         { new: true, runValidators: true }
-      ).lean().exec();
+      ).lean<IProperty>().exec();
 
       if (!updatedProperty) {
         throw new Error(`Property with ID ${propertyId} not found`);
