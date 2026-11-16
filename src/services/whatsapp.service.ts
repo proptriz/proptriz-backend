@@ -1,118 +1,113 @@
 // src/services/whatsapp.service.ts
-// Meta WhatsApp Cloud API — dedicated template message per order lifecycle flow
+// Meta WhatsApp Cloud API: one approved template per listing alert.
+//
+// WhatsApp is paid per message, so it is OFF unless WHATSAPP_ENABLED=true and
+// the credentials are set. It is not part of the first alerts release.
+//
+// Templates to create in Meta Business Manager → Message Templates
+// (category Utility; one translation each for en, fr and sw):
+//   new_listing_alert  → "New on Proptriz: {{1}} at {{2}}, {{3}}. View it: {{4}}"
+//   listing_enquiry    → "{{1}} is interested in your Proptriz listing {{2}}. View it: {{3}}"
+//   listing_expiring   → "Your Proptriz listing {{1}} expires in {{2}} day(s). Renew it: {{3}}"
 
 import axios from 'axios';
 import logger from '../config/loggingConfig';
+import { AlertLocale, ListingSummary, editListingUrl, listingUrl } from './notificationCopy';
 
-const WA_API_URL = `https://graph.facebook.com/v25.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-const WA_TOKEN    = process.env.WHATSAPP_ACCESS_TOKEN!;
+const GRAPH_API_VERSION = 'v25.0';
 
-interface TemplateComponent {
-  type: 'header' | 'body' | 'button';
-  parameters: { type: 'text'; text: string }[];
+const TEMPLATE_LANGUAGE: Record<AlertLocale, string> = { en: 'en', fr: 'fr', sw: 'sw' };
+
+export function isWhatsappEnabled(): boolean {
+  return (
+    process.env.WHATSAPP_ENABLED === 'true' &&
+    !!process.env.WHATSAPP_PHONE_NUMBER_ID &&
+    !!process.env.WHATSAPP_ACCESS_TOKEN
+  );
 }
 
-async function sendTemplate(to: string, templateName: string, bodyParams: string[]): Promise<string> {
-  console.log({
-    WA_API_URL,
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-  });
+/** Last four digits only: phone numbers never go to the logs in full. */
+function maskPhone(phone: string): string {
+  return `…${phone.slice(-4)}`;
+}
+
+async function sendTemplate(
+  to: string,
+  templateName: string,
+  bodyParams: string[],
+  locale: AlertLocale = 'en',
+): Promise<string> {
+  if (!isWhatsappEnabled()) {
+    throw new Error('WhatsApp is not enabled');
+  }
+
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const recipient = to.replace(/^\+/, ''); // the Cloud API expects the number without "+"
+
   try {
-    const res = await axios.post(WA_API_URL, {
+    const res = await axios.post(url, {
       messaging_product: 'whatsapp',
-      to,
+      to: recipient,
       type: 'template',
       template: {
         name: templateName,
-        language: { code: 'en_US' },
+        language: { code: TEMPLATE_LANGUAGE[locale] },
         components: [{
           type: 'body',
           parameters: bodyParams.map((text) => ({ type: 'text', text })),
-        } as TemplateComponent],
+        }],
       },
     }, {
-      headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      timeout: 10_000,
     });
 
     const messageId = res.data?.messages?.[0]?.id ?? 'unknown';
-    logger.info(`[WhatsApp] Sent (${templateName}):`, messageId);
+    logger.info(`[WhatsApp] Sent ${templateName} to ${maskPhone(recipient)}: ${messageId}`);
     return messageId;
   } catch (err: any) {
-    console.error("Status:", err.response?.status);
-    console.error("Data:", JSON.stringify(err.response?.data, null, 2));
-    console.error("URL:", err.config?.url);
-    return Promise.reject(new Error(`Failed to send WhatsApp template (${templateName}): ${err.message}`));
+    // Log Meta's error body, but never the request (it carries the access token).
+    logger.error(`[WhatsApp] ${templateName} to ${maskPhone(recipient)} failed`, {
+      status: err.response?.status,
+      error: err.response?.data?.error,
+    });
+    throw new Error(`Failed to send WhatsApp template (${templateName}): ${err.message}`);
   }
 }
 
-function shortId(orderId: string): string {
-  return orderId.slice(-6).toUpperCase();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Order lifecycle messages — each maps to an approved Meta template
-// ═══════════════════════════════════════════════════════════════════════════
-// Create these exact templates in Meta Business Manager → Message Templates:
-//   new_order           → "New order #{{1}} from {{2}} for {{3}} Pi on OnSwap."
-//   payment_marked_paid → "{{1}} marked order #{{2}} as paid ({{3}} Pi). Please verify and release."
-//   pi_released         → "You received {{1}} Pi on OnSwap. Order #{{2}} complete 🎉"
-//   order_cancelled     → "Order #{{1}} ({{2}} Pi) was cancelled."
-//   order_disputed      → "A dispute was opened on order #{{1}} ({{2}} Pi). Reason: {{3}}"
-
-/** New order placed — sent to the counterparty (ad owner) */
-export async function whatsappNewOrder(opts: {
-  phone: string; orderId: string; counterpartyName: string; piAmount: string;
+/** A new listing matches what the person is looking for. */
+export async function whatsappNewListing(opts: {
+  phone: string; listing: ListingSummary; locale?: AlertLocale;
 }): Promise<void> {
-  logger.info('Sending WhatsApp new order notification', { opts });
-  await sendTemplate(opts.phone, 'new_order', [shortId(opts.orderId), opts.counterpartyName, opts.piAmount]);
+  const { listing } = opts;
+  await sendTemplate(
+    opts.phone,
+    'new_listing_alert',
+    [listing.title, listing.priceText, listing.locationText ?? '-', listingUrl(listing.id)],
+    opts.locale,
+  );
 }
 
-/** Buyer marked payment as sent — sent to the seller */
-export async function whatsappPaymentMarkedPaid(opts: {
-  phone: string; orderId: string; buyerName: string; piAmount: string;
+/** Sent to the agent/owner when someone asks for the contact on their listing. */
+export async function whatsappListingEnquiry(opts: {
+  phone: string; listing: ListingSummary; enquirerName: string; locale?: AlertLocale;
 }): Promise<void> {
-  // remove the + from the phone number for WhatsApp API
-  opts.phone = opts.phone.replace(/^\+/, '');
-  console.log('Sending WhatsApp payment marked paid notification', { opts });
-  await sendTemplate(opts.phone, 'jaspers_market_order_confirmation_v1', [opts.buyerName, shortId(opts.orderId), opts.piAmount]);
+  await sendTemplate(
+    opts.phone,
+    'listing_enquiry',
+    [opts.enquirerName, opts.listing.title, listingUrl(opts.listing.id)],
+    opts.locale,
+  );
 }
 
-/** Pi released on-chain — sent to the buyer */
-export async function whatsappPiReleased(opts: {
-  phone: string; orderId: string; piAmount: string;
+/** Sent to the agent/owner shortly before a listing expires. */
+export async function whatsappListingExpiring(opts: {
+  phone: string; listing: ListingSummary; daysLeft: number; locale?: AlertLocale;
 }): Promise<void> {
-  logger.info('Sending WhatsApp pi released notification', { opts });
-  await sendTemplate(opts.phone, 'hello_world', [opts.piAmount, shortId(opts.orderId)]);
+  await sendTemplate(
+    opts.phone,
+    'listing_expiring',
+    [opts.listing.title, String(opts.daysLeft), editListingUrl(opts.listing.id)],
+    opts.locale,
+  );
 }
-
-/** Order cancelled — sent to either party */
-export async function whatsappOrderCancelled(opts: {
-  phone: string; orderId: string; piAmount: string;
-}): Promise<void> {
-  logger.info('Sending WhatsApp order cancelled notification', { opts });
-  await sendTemplate(opts.phone, 'order_cancelled', [shortId(opts.orderId), opts.piAmount]);
-}
-
-/** Dispute raised — sent to the other party */
-export async function whatsappOrderDisputed(opts: {
-  phone: string; orderId: string; piAmount: string; reason: string;
-}): Promise<void> {
-  logger.info('Sending WhatsApp order disputed notification', { opts });
-  await sendTemplate(opts.phone, 'order_disputed', [shortId(opts.orderId), opts.piAmount, opts.reason]);
-}
-
-/** Welcome message for new users */
-export async function whatsappWelcome(opts: { phone: string; username: string }): Promise<void> {
-  logger.info('Sending WhatsApp welcome message', { opts });
-  await sendTemplate(opts.phone, 'welcome_user', [opts.username]);
-}
-
-// curl -i -X POST `
-//      https://graph.facebook.com/v25.0/1226073813916507/messages `
-//      -H 'Authorization: Bearer EAAjnyvFm9MoBR1L9SrbvFLAeBZBbZALqhS87bW3ltbiwaw8t61F0FxxZCPiUYPrWBL32ZBzM1YlzzQ1ltry4GBPAI6b2QJInyItLUzz6wvr1z1Fq6u8rDQmE09liZC5RlfLrxiYSdk6O7j103dZCBei16fGJB3cdltu0lqNLwRrkk8Avx454UtkZCsjJY1CYAUxeEf4thP83jIOLcAvzeUawHqFJOP3ApWW6Wb7WZAG0uyPDp4pxDBKv6TalUNd2srhj7Td9zFK78ZA3c94BZBsDlXSZAay' `
-//      -H 'Content-Type: application/json' `
-//      -d '{ \"messaging_product\": \"whatsapp\",
-//      \"to\": \"2348104822394\",
-//      \"type\": \"template\",
-//      \"template\": { \"name\": \"jaspers_market_plain_text_v1\",
-//      \"language\": { \"code\": \"en_US\" } } }'

@@ -1,39 +1,36 @@
 // src/services/notification.service.ts
-// Unified notification dispatcher — one function per order lifecycle flow.
-// Each fans out to email + WhatsApp in parallel, respecting per-user
-// NotificationSettings. Designed to be called fire-and-forget from
-// controllers, strictly AFTER the related DB transaction commits.
+// Unified notification dispatcher: one function per alert.
+// Each fans out to email, push and (when enabled) WhatsApp in parallel,
+// respecting the person's NotificationSettings. Designed to be called
+// fire-and-forget, strictly AFTER the related database write has succeeded.
 
 import {
-  whatsappNewOrder,
-  whatsappPaymentMarkedPaid,
-  whatsappPiReleased,
-  whatsappOrderCancelled,
-  whatsappOrderDisputed,
-  whatsappWelcome,
+  isWhatsappEnabled,
+  whatsappListingEnquiry,
+  whatsappListingExpiring,
+  whatsappNewListing,
 } from './whatsapp.service';
 import {
-  emailNewOrder,
-  emailPaymentMarkedPaid,
-  emailPiReleased,
-  emailOrderCancelled,
-  emailOrderDisputed,
+  emailListingEnquiry,
+  emailListingExpiring,
+  emailNewListing,
   emailWelcome,
-  emailAlert,
 } from './email.service';
 import { getNotificationSettings } from './notificationSettings.service';
 import logger from '../config/loggingConfig';
-import { getTokensForUser } from '../models/deviceToken';
-import { pushToTokens } from './pushNotification.service';
+import { getTokensForUser, pruneStaleTokens } from '../models/deviceToken';
+import { PushPayload, pushToTokens } from './pushNotification.service';
+import {
+  AlertLocale, ListingSummary, alertCopy, editListingUrl, listingUrl,
+} from './notificationCopy';
 
 // ─── Resolved contact shape ───────────────────────────────────────────────────
 
-interface UserContact {
-  username:      string;
-  email?:        string;
-  phone?:        string;
-  fcmTokens?: string[];
-  whatsappOptIn: boolean;
+export interface UserContact {
+  username:   string;
+  email?:     string;   // set only when the email channel is on
+  phone?:     string;   // set only when the WhatsApp channel is on
+  fcmTokens?: string[]; // set only when push is on and a device is registered
 }
 
 // ─── Resolve a user's contact info from their saved NotificationSettings ────
@@ -43,23 +40,19 @@ export async function resolveNotificationContact(
   username: string
 ): Promise<UserContact | null> {
   try {
-    let fcmTokens: string[] | undefined = [];
     const settings = await getNotificationSettings(userId);
     if (!settings) {
-      logger.warn(`[Notify] No notification settings found for user ${userId} — skipping`);
+      logger.warn(`[Notify] No notification settings found for user ${userId}; skipping`);
       return null;
     }
 
-    if (settings.emailEnabled){
-      fcmTokens = await getTokensForUser(userId);
-    }
+    const fcmTokens = settings.pushEnabled ? await getTokensForUser(userId) : [];
 
     return {
       username,
-      email:         settings.emailEnabled    ? settings.email ?? undefined         : undefined,
-      phone:         settings.whatsappEnabled ? settings.whatsappNumber ?? undefined : undefined,
-      whatsappOptIn: settings.whatsappEnabled,
-      fcmTokens: fcmTokens.length > 0 ? fcmTokens : undefined
+      email:     settings.emailEnabled    ? settings.email ?? undefined          : undefined,
+      phone:     settings.whatsappEnabled ? settings.whatsappNumber ?? undefined : undefined,
+      fcmTokens: fcmTokens.length > 0 ? fcmTokens : undefined,
     };
   } catch (err) {
     logger.error(`[Notify] Failed to resolve contact for user ${userId}:`, err);
@@ -69,36 +62,38 @@ export async function resolveNotificationContact(
 
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
 
-async function dispatch(
-  user: UserContact | null,
-  emailFn:    (() => Promise<void>) | null,
-  whatsappFn: (() => Promise<void>) | null,
-  pushNotifiFn: (() => Promise<void>) | null,
-): Promise<void> {
+interface ChannelSends {
+  email?:    (to: string) => Promise<void>;
+  whatsapp?: (phone: string) => Promise<void>;
+  push?:     PushPayload;
+}
+
+async function dispatch(user: UserContact | null, sends: ChannelSends): Promise<void> {
   if (!user) return;
 
   const tasks: Promise<void>[] = [];
 
-  if (emailFn && user.email) {
-    tasks.push(
-      emailFn().catch((err) => { logger.error('[Notify] Email failed:', err); })
-    );
+  if (sends.email && user.email) {
+    const to = user.email;
+    tasks.push(sends.email(to).catch((err) => { logger.error('[Notify] Email failed:', err); }));
   }
 
-  if (whatsappFn && user.phone && user.whatsappOptIn) {
-    tasks.push(
-      whatsappFn().catch((err) => { logger.error('[Notify] WhatsApp failed:', err); })
-    );
+  if (sends.whatsapp && user.phone && isWhatsappEnabled()) {
+    const phone = user.phone;
+    tasks.push(sends.whatsapp(phone).catch((err) => { logger.error('[Notify] WhatsApp failed:', err); }));
   }
 
-  if (pushNotifiFn && user.fcmTokens && user.fcmTokens.length>0) {
+  if (sends.push && user.fcmTokens?.length) {
+    const tokens = user.fcmTokens;
     tasks.push(
-      pushNotifiFn().catch((err) => { logger.error('[Notify] Push failed:', err); })
+      pushToTokens(tokens, sends.push)
+        .then((staleTokens) => pruneStaleTokens(staleTokens))
+        .catch((err) => { logger.error('[Notify] Push failed:', err); })
     );
   }
 
   if (!tasks.length) {
-    logger.info(`[Notify] No enabled channels with contact info for ${user.username} — skipped`);
+    logger.info(`[Notify] No enabled channels with contact info for ${user.username}; skipped`);
     return;
   }
 
@@ -106,100 +101,84 @@ async function dispatch(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Order lifecycle events — one dedicated function per flow
+// Listing alerts
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** New order placed — notify the counterparty (ad owner) */
-// export async function notifyNewOrder(
-//   userId: string,
-//   username: string,
-//   opts: { orderId: string; piAmount: string; counterpartyName: string },
-// ): Promise<void> {
-//   const user = await resolveNotificationContact(userId, username);
-//   await dispatch(
-//     user,
-//     user?.email ? () => emailNewOrder({
-//       to: user.email!, username: user.username,
-//       orderId: opts.orderId, piAmount: opts.piAmount, counterpartyName: opts.counterpartyName,
-//     }) : null,
-//     user?.phone ? () => whatsappNewOrder({
-//       phone: user.phone!, orderId: opts.orderId,
-//       counterpartyName: opts.counterpartyName, piAmount: opts.piAmount,
-//     }) : null,
-    
-//   );
-// }
+/** A new listing matches what the person is looking for. */
+export async function notifyNewListing(
+  userId: string,
+  username: string,
+  opts: { listing: ListingSummary; searchName?: string; locale?: AlertLocale },
+): Promise<void> {
+  const { listing, searchName, locale } = opts;
+  const copy = alertCopy(locale);
+  const user = await resolveNotificationContact(userId, username);
 
-/** Buyer marked payment as sent — notify the seller to verify & release */
-// export async function notifyPaymentMarkedPaid(
-//   userId: string,
-//   username: string,
-//   opts: { orderId: string; piAmount: string; buyerName: string },
-// ): Promise<void> {
-//   const user = await resolveNotificationContact(userId, username);
-//   await dispatch(
-//     user,
-//     user?.email ? () => emailPaymentMarkedPaid({
-//       to: user.email!, username: user.username,
-//       orderId: opts.orderId, piAmount: opts.piAmount, buyerName: opts.buyerName,
-//     }) : null,
-//     user?.phone ? () => whatsappPaymentMarkedPaid({
-//       phone: user.phone!, orderId: opts.orderId,
-//       buyerName: opts.buyerName, piAmount: opts.piAmount,
-//     }) : null,
-//   );
-// }
+  await dispatch(user, {
+    email:    (to) => emailNewListing({ to, username, listing, searchName, locale }),
+    whatsapp: (phone) => whatsappNewListing({ phone, listing, locale }),
+    push: {
+      title: copy.newListing.pushTitle,
+      body: copy.newListing.pushBody(listing),
+      imageUrl: listing.imageUrl,
+      data: { type: 'new_listing', listingId: listing.id, url: listingUrl(listing.id) },
+    },
+  });
+}
 
-/** Order cancelled — notify either party */
-// export async function notifyOrderCancelled(
-//   userId: string,
-//   username: string,
-//   opts: { orderId: string; piAmount: string; reason?: string },
-// ): Promise<void> {
-//   const user = await resolveNotificationContact(userId, username);
-//   await dispatch(
-//     user,
-//     user?.email ? () => emailOrderCancelled({
-//       to: user.email!, username: user.username,
-//       orderId: opts.orderId, piAmount: opts.piAmount, reason: opts.reason,
-//     }) : null,
-//     user?.phone ? () => whatsappOrderCancelled({
-//       phone: user.phone!, orderId: opts.orderId, piAmount: opts.piAmount,
-//     }) : null,
-//   );
-// }
+/** Tell the agent/owner that someone asked for the contact on their listing. */
+export async function notifyListingEnquiry(
+  userId: string,
+  username: string,
+  opts: { listing: ListingSummary; enquirerName: string; locale?: AlertLocale },
+): Promise<void> {
+  const { listing, enquirerName, locale } = opts;
+  const copy = alertCopy(locale);
+  const user = await resolveNotificationContact(userId, username);
+
+  await dispatch(user, {
+    email:    (to) => emailListingEnquiry({ to, username, listing, enquirerName, locale }),
+    whatsapp: (phone) => whatsappListingEnquiry({ phone, listing, enquirerName, locale }),
+    push: {
+      title: copy.enquiry.pushTitle,
+      body: copy.enquiry.pushBody(enquirerName, listing),
+      data: { type: 'listing_enquiry', listingId: listing.id, url: listingUrl(listing.id) },
+    },
+  });
+}
+
+/** Warn the agent/owner shortly before a listing expires. */
+export async function notifyListingExpiring(
+  userId: string,
+  username: string,
+  opts: { listing: ListingSummary; daysLeft: number; locale?: AlertLocale },
+): Promise<void> {
+  const { listing, daysLeft, locale } = opts;
+  const copy = alertCopy(locale);
+  const user = await resolveNotificationContact(userId, username);
+
+  await dispatch(user, {
+    email:    (to) => emailListingExpiring({ to, username, listing, daysLeft, locale }),
+    whatsapp: (phone) => whatsappListingExpiring({ phone, listing, daysLeft, locale }),
+    push: {
+      title: copy.expiring.pushTitle,
+      body: copy.expiring.pushBody(listing, daysLeft),
+      data: { type: 'listing_expiring', listingId: listing.id, url: editListingUrl(listing.id) },
+    },
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Account events
 // ═══════════════════════════════════════════════════════════════════════════
 
-// export async function notifyUserWelcome(userId: string, username: string): Promise<void> {
-//   const user = await resolveNotificationContact(userId, username);
-//   await dispatch(
-//     user,
-//     user?.email ? () => emailWelcome({ to: user.email!, username: user.username }) : null,
-//     user?.phone ? () => whatsappWelcome({ phone: user.phone!, username: user.username }) : null,
-//   );
-// }
-
-export async function notifyCustom(opts: {
-  userId: string; username: string; subject: string; title: string; body: string;
-  ctaText?: string; ctaUrl?: string;
-}): Promise<void> {
-  const user = await resolveNotificationContact(opts.userId, opts.username);
-  await dispatch(
-    user,
-    user?.email ? () => emailAlert({
-      to: user.email!, subject: opts.subject, title: opts.title, body: opts.body,
-      ctaText: opts.ctaText, ctaUrl: opts.ctaUrl,
-    }) : null,
-    null, // custom alerts; no generic WhatsApp template
-    user?.fcmTokens ? () => pushToTokens(
-    user.fcmTokens as string[],
-    {
-      title: opts.title,
-      body:opts.body,
-      data: opts.ctaUrl ? { url: opts.ctaUrl } : {},
-    }) : null,
-  );
+export async function notifyUserWelcome(
+  userId: string,
+  username: string,
+  opts: { locale?: AlertLocale } = {},
+): Promise<void> {
+  const user = await resolveNotificationContact(userId, username);
+  await dispatch(user, {
+    email: (to) => emailWelcome({ to, username, locale: opts.locale }),
+  });
 }

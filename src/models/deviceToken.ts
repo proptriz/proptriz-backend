@@ -3,7 +3,7 @@ import { Schema, model, Document } from "mongoose";
 // ─── Interface ────────────────────────────────────────────────────────────────
 
 export interface IDeviceToken extends Document {
-  userId: string;       // Pi username or your platform user ID
+  userId: string;       // User._id as a string
   fcmToken: string;
   platform: "web" | "android" | "ios";
   createdAt: Date;
@@ -37,9 +37,9 @@ export async function upsertToken(
   return result.upsertedCount > 0;
 }
 
-/** Remove one specific token (e.g. on logout). */
-export async function removeToken(fcmToken: string): Promise<void> {
-  await DeviceToken.deleteOne({ fcmToken });
+/** Remove one of a user's own tokens (e.g. on logout). Never touches another user's device. */
+export async function removeTokenForUser(userId: string, fcmToken: string): Promise<void> {
+  await DeviceToken.deleteOne({ fcmToken, userId });
 }
 
 /** Bulk-remove stale tokens returned by FCM after a multicast send. */

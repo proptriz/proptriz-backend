@@ -1,7 +1,15 @@
 import { NextFunction, Request, Response } from "express";
 import { decodeUserToken } from "../helpers/jwt";
 import { IUser } from "../types";
+import { createHash, timingSafeEqual } from "crypto";
 import logger from "../config/loggingConfig";
+
+/** Constant-time string comparison (hashing first so lengths always match). */
+function safeEqual(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -20,7 +28,6 @@ export const verifyToken = async (
 
   // Fallback to the authorization header if token is not in the cookie
   const authHeader = req.headers.authorization;
-  logger.debug("CHECK AUTH TOKEN, ", tokenFromCookie);
   const tokenFromHeader = authHeader && authHeader.split(" ")[1];
 
   // Prioritize token from cookies, then from header
@@ -64,10 +71,19 @@ export const verifyAdminToken = (
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
-  const [username, password] = credentials.split(":");
+  // Refuse outright when the admin credentials are not configured, so an
+  // empty username/password can never match.
+  if (!ADMIN_API_USERNAME || !ADMIN_API_PASSWORD) {
+    logger.error("Admin credentials are not configured.");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
-  if (username !== ADMIN_API_USERNAME || password !== ADMIN_API_PASSWORD) {
+  const credentials = Buffer.from(base64Credentials, "base64").toString("utf8");
+  const separator = credentials.indexOf(":");
+  const username = separator === -1 ? credentials : credentials.slice(0, separator);
+  const password = separator === -1 ? "" : credentials.slice(separator + 1);
+
+  if (!safeEqual(username, ADMIN_API_USERNAME) || !safeEqual(password, ADMIN_API_PASSWORD)) {
     logger.warn("Admin credentials are invalid.");
     return res.status(401).json({ message: "Unauthorized" });
   }

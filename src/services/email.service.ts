@@ -3,6 +3,9 @@
 
 import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../config/loggingConfig';
+import {
+  AlertLocale, ListingSummary, alertCopy, alertSettingsUrl, appUrl, editListingUrl, listingUrl,
+} from './notificationCopy';
 
 // ─── Transporter singleton ───────────────────────────────────────────────────
 
@@ -10,6 +13,10 @@ let transporter: Transporter;
 
 export function initEmail(): void {
   if (transporter) return;
+
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.EMAIL_FROM_ADDRESS) {
+    throw new Error('Email is not configured (SMTP_HOST / SMTP_USER / SMTP_PASS / EMAIL_FROM_ADDRESS)');
+  }
 
   transporter = nodemailer.createTransport({
     host:   process.env.SMTP_HOST!,    // e.g. smtp.resend.com
@@ -25,7 +32,7 @@ export function initEmail(): void {
     }
   });
 
-  logger.info('[Email] Transporter initialized ✓');
+  logger.info('[Email] Transporter initialized');
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -56,75 +63,8 @@ export async function sendEmail(opts: EmailOptions): Promise<string> {
   return info.messageId;
 }
 
-// ─── HTML template helper ─────────────────────────────────────────────────────
-
-function emailTemplate(content: string): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <meta name="supported-color-schemes" content="dark light">
-  <style>
-    body        { margin:0; padding:0; background:#0f0f0f; font-family:Arial,sans-serif; color:#e5e5e5; }
-    .wrapper    { max-width:560px; margin:0 auto; padding:32px 16px; }
-    .card       { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:16px; padding:32px; color:#e5e5e5; }
-    .logo       { font-size:22px; font-weight:bold; margin-bottom:4px; }
-    .tagline    { font-size:11px; font-weight:bold; color:#9a9a9a; letter-spacing:1px;
-                  text-transform:uppercase; margin:0 0 24px; }
-    .divider    { border:none; border-top:1px solid #2a2a2a; margin:24px 0; }
-    .btn        { display:inline-block; background:#f0a03c; color:#000 !important; font-weight:bold;
-                  text-decoration:none; padding:12px 28px; border-radius:10px; font-size:15px; }
-    .btn-outline{ display:inline-block; background:transparent; color:#f0a03c !important; font-weight:bold;
-                  text-decoration:none; padding:11px 27px; border-radius:10px; font-size:15px;
-                  border:1px solid #f0a03c; margin-left:8px; }
-    .muted      { color:#9a9a9a; font-size:13px; }
-    .amount     { font-size:28px; font-weight:bold; color:#f0a03c; }
-    .badge      { display:inline-block; font-size:12px; font-weight:bold; padding:4px 10px;
-                  border-radius:999px; }
-    .badge-warn { background:rgba(251,191,36,0.15); color:#fbbf24; }
-    .badge-ok   { background:rgba(74,222,128,0.15); color:#4ade80; }
-    .badge-bad  { background:rgba(248,113,113,0.15); color:#f87171; }
-    .footer     { text-align:center; margin-top:24px; font-size:12px; color:#7a7a7a; }
-    h2, p, a    { color:#e5e5e5; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="card">
-      <div class="logo">
-        <span style="color:#ffffff">on</span><span style="color:#f0a03c">Swap</span>
-      </div>
-      <div class="tagline">African Pi Exchange</div>
-      ${content}
-    </div>
-    <div class="footer">
-      © ${new Date().getFullYear()} OnSwap. You received this because you have an account with us.
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-function shortId(orderId: string): string {
-  return orderId.slice(-6).toUpperCase();
-}
-
-// ─── Pi Browser link block (replaces the old .btn CTA) ────────────────────────
-function piBrowserLink(url: string, instruction: string): string {
-  const safeUrl = escapeHtml(sanitizeUrl(url));
-  return `
-    <p class="muted" style="margin:16px 0 6px">${escapeHtml(instruction)}</p>
-    <div style="background:#0f0f0f;border:1px solid #2a2a2a;border-radius:8px;padding:10px 14px;word-break:break-all;">
-      <a href="${safeUrl}" style="color:#f0a03c;font-family:monospace;font-size:13px;text-decoration:none;">${safeUrl}</a>
-    </div>
-    <p class="muted" style="margin:6px 0 0;font-size:12px;">Copy the link above and open it inside Pi Browser.</p>
-  `;
-}
-
 // ─── Escaping helpers ──────────────────────────────────────────────────────────
+
 function escapeHtml(input: string): string {
   return input
     .replace(/&/g, '&amp;')
@@ -134,8 +74,7 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// Guards against javascript: / data: URLs being injected into href attributes —
-// relevant for emailAlert's ctaUrl, which can originate from a caller-supplied body.
+// Only http(s) links may reach an href or src attribute.
 function sanitizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -146,104 +85,133 @@ function sanitizeUrl(url: string): string {
   }
 }
 
+// ─── HTML template helper ─────────────────────────────────────────────────────
+// Proptriz brand: teal #1e5f74, navy #143d4d, gold #f0a500.
+// Inline styles only, since many mail clients drop <style> blocks.
+
+const BRAND = { teal: '#1e5f74', navy: '#143d4d', gold: '#f0a500', text: '#1f2937', muted: '#6b7280', line: '#e5e7eb', page: '#f3f6f8' };
+const FONT = "'DM Sans',Arial,Helvetica,sans-serif";
+
+function emailTemplate(content: string, locale?: AlertLocale): string {
+  const copy = alertCopy(locale);
+  const settingsUrl = escapeHtml(alertSettingsUrl());
+  return `<!DOCTYPE html>
+<html lang="${locale ?? 'en'}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:${BRAND.page};font-family:${FONT};color:${BRAND.text};">
+  <div style="max-width:560px;margin:0 auto;padding:24px 16px;">
+    <div style="background:${BRAND.navy};border-radius:16px 16px 0 0;padding:20px 28px;">
+      <span style="font-family:Raleway,${FONT};font-size:22px;font-weight:900;color:#ffffff;">Prop</span><span style="font-family:Raleway,${FONT};font-size:22px;font-weight:900;color:${BRAND.gold};">triz</span>
+    </div>
+    <div style="background:#ffffff;border:1px solid ${BRAND.line};border-top:none;border-radius:0 0 16px 16px;padding:28px;font-size:15px;line-height:1.55;">
+      ${content}
+    </div>
+    <div style="text-align:center;margin-top:20px;font-size:12px;line-height:1.5;color:${BRAND.muted};">
+      ${escapeHtml(copy.footer)}<br>
+      <a href="${settingsUrl}" style="color:${BRAND.teal};">${escapeHtml(copy.manageAlerts)}</a>
+      &nbsp;·&nbsp; © ${new Date().getFullYear()} Proptriz
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function heading(text: string): string {
+  return `<h2 style="margin:0 0 12px;font-size:20px;line-height:1.3;color:${BRAND.navy};">${escapeHtml(text)}</h2>`;
+}
+
+function paragraph(text: string, muted = false): string {
+  return `<p style="margin:0 0 12px;color:${muted ? BRAND.muted : BRAND.text};">${escapeHtml(text)}</p>`;
+}
+
+/** Button plus the same link written out, for clients that hide buttons. */
+function ctaButton(label: string, url: string, locale?: AlertLocale): string {
+  const safeUrl = escapeHtml(sanitizeUrl(url));
+  return `
+    <p style="margin:20px 0 12px;">
+      <a href="${safeUrl}" style="display:inline-block;background:${BRAND.teal};color:#ffffff;font-weight:bold;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;">${escapeHtml(label)}</a>
+    </p>
+    <p style="margin:0;font-size:12px;color:${BRAND.muted};word-break:break-all;">
+      ${escapeHtml(alertCopy(locale).linkFallback)} <a href="${safeUrl}" style="color:${BRAND.teal};">${safeUrl}</a>
+    </p>`;
+}
+
+function listingCard(listing: ListingSummary): string {
+  const image = listing.imageUrl && sanitizeUrl(listing.imageUrl) !== '#'
+    ? `<img src="${escapeHtml(listing.imageUrl)}" alt="" width="100%" style="display:block;width:100%;max-height:240px;object-fit:cover;border-radius:12px 12px 0 0;">`
+    : '';
+  const location = listing.locationText
+    ? `<div style="font-size:13px;color:${BRAND.muted};margin-top:2px;">${escapeHtml(listing.locationText)}</div>`
+    : '';
+  return `
+    <div style="border:1px solid ${BRAND.line};border-radius:12px;margin:16px 0 4px;">
+      ${image}
+      <div style="padding:14px 16px;">
+        <div style="font-size:16px;font-weight:bold;color:${BRAND.navy};">${escapeHtml(listing.title)}</div>
+        ${location}
+        <div style="font-size:18px;font-weight:bold;color:${BRAND.teal};margin-top:8px;">${escapeHtml(listing.priceText)}</div>
+      </div>
+    </div>`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// Order lifecycle emails — one dedicated function per flow/recipient pair
+// Listing alerts
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** New order placed — sent to the counterparty (ad owner) */
-export async function emailNewOrder(opts: {
-  to: string; username: string; orderId: string; piAmount: string; counterpartyName: string;
+/** A new listing matches what the person is looking for. */
+export async function emailNewListing(opts: {
+  to: string; username: string; listing: ListingSummary; searchName?: string; locale?: AlertLocale;
 }): Promise<void> {
+  const copy = alertCopy(opts.locale);
   await sendEmail({
     to: opts.to,
-    subject: `New order #${shortId(opts.orderId)} on OnSwap`,
+    subject: copy.newListing.subject(opts.listing),
     html: emailTemplate(`
-      <h2 style="margin:0 0 8px">New Order Received</h2>
-      <p class="muted">Hi ${opts.username}, you have a new order placed against your ad.</p>
-      <hr class="divider">
-      <div class="amount">${opts.piAmount} Pi</div>
-      <span class="badge badge-warn">Awaiting Payment</span>
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}/p2p/orders/${opts.orderId}`, 'Open this link in Pi Browser to view your order:')}
-    `),
+      ${heading(copy.newListing.heading)}
+      ${paragraph(copy.greeting(opts.username))}
+      ${paragraph(copy.newListing.intro(opts.searchName))}
+      ${listingCard(opts.listing)}
+      ${ctaButton(copy.viewListing, listingUrl(opts.listing.id), opts.locale)}
+    `, opts.locale),
   });
 }
 
-/** Buyer marked payment as sent — sent to the seller, prompts Pi release */
-export async function emailPaymentMarkedPaid(opts: {
-  to: string; username: string; orderId: string; piAmount: string; buyerName: string;
+/** Sent to the agent/owner when someone asks for the contact on their listing. */
+export async function emailListingEnquiry(opts: {
+  to: string; username: string; listing: ListingSummary; enquirerName: string; locale?: AlertLocale;
 }): Promise<void> {
+  const copy = alertCopy(opts.locale);
   await sendEmail({
     to: opts.to,
-    subject: `Action needed: confirm payment for order #${shortId(opts.orderId)}`,
+    subject: copy.enquiry.subject(opts.listing),
     html: emailTemplate(`
-      <h2 style="margin:0 0 8px">Buyer Marked Payment as Sent</h2>
-      <p class="muted">Hi ${opts.username}, the buyer has marked your order #${shortId(opts.orderId)} as paid.</p>
-      <hr class="divider">
-      <div class="amount">${opts.piAmount} Pi</div>
-      <span class="badge badge-warn">Verify &amp; Release</span>
-      <hr class="divider">
-      <p class="muted">Please check your payment account, confirm the funds have landed, then release the Pi.</p>
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}/p2p/orders/${opts.orderId}`, 'Open this link in Pi Browser to review and release:')}
-    `),
+      ${heading(copy.enquiry.heading)}
+      ${paragraph(copy.greeting(opts.username))}
+      ${paragraph(copy.enquiry.intro(opts.enquirerName, opts.listing))}
+      ${listingCard(opts.listing)}
+      ${ctaButton(copy.viewListing, listingUrl(opts.listing.id), opts.locale)}
+    `, opts.locale),
   });
 }
 
-/** Pi released on-chain — sent to the buyer */
-export async function emailPiReleased(opts: {
-  to: string; username: string; orderId: string; piAmount: string; txId?: string;
+/** Sent to the agent/owner shortly before a listing expires. */
+export async function emailListingExpiring(opts: {
+  to: string; username: string; listing: ListingSummary; daysLeft: number; locale?: AlertLocale;
 }): Promise<void> {
+  const copy = alertCopy(opts.locale);
   await sendEmail({
     to: opts.to,
-    subject: `You received ${opts.piAmount} Pi 🎉`,
+    subject: copy.expiring.subject(opts.listing, opts.daysLeft),
     html: emailTemplate(`
-      <h2 style="margin:0 0 8px">Pi Released</h2>
-      <p class="muted">Hi ${opts.username}, the seller has marked your order #${shortId(opts.orderId)} as released and Pi has now been sent to your wallet.</p>
-      <hr class="divider">
-      <div class="amount">${opts.piAmount} Pi</div>
-      <span class="badge badge-ok">Completed</span>
-      ${opts.txId ? `<hr class="divider"><p class="muted">Transaction ID: <code>${opts.txId}</code></p>` : ''}
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}/p2p/orders/${opts.orderId}`, 'Open this link in Pi Browser to view your order:')}
-    `),
-  });
-}
-
-/** Order cancelled — sent to either party */
-export async function emailOrderCancelled(opts: {
-  to: string; username: string; orderId: string; piAmount: string; reason?: string;
-}): Promise<void> {
-  const username = escapeHtml(opts.username);
-  const reason = opts.reason ? escapeHtml(opts.reason) : undefined;
-  await sendEmail({
-    to: opts.to,
-    subject: `Order #${shortId(opts.orderId)} cancelled`,
-    html: emailTemplate(`
-      <h2 style="margin:0 0 8px">Order Cancelled</h2>
-      <p class="muted">Hi ${username}, order #${shortId(opts.orderId)} for ${opts.piAmount} Pi was cancelled — please do not make any payment.</p>
-      <span class="badge badge-bad">Cancelled</span>
-      ${reason ? `<hr class="divider"><p class="muted">Reason: ${reason}</p>` : ''}
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}/p2p/orders/${opts.orderId}`, 'Open this link in Pi Browser to view the order:')}
-    `),
-  });
-}
-
-/** Dispute raised — sent to the other party */
-export async function emailOrderDisputed(opts: {
-  to: string; username: string; orderId: string; piAmount: string; reason: string;
-}): Promise<void> {
-  const username = escapeHtml(opts.username);
-  const reason = escapeHtml(opts.reason);
-  await sendEmail({
-    to: opts.to,
-    subject: `Dispute opened on order #${shortId(opts.orderId)}`,
-    html: emailTemplate(`
-      <h2 style="margin:0 0 8px">Dispute Raised</h2>
-      <p class="muted">Hi ${username}, a dispute was opened on order #${shortId(opts.orderId)} for ${opts.piAmount} Pi.</p>
-      <span class="badge badge-bad">Disputed</span>
-      <hr class="divider">
-      <p class="muted">Reason: ${reason}</p>
-      <p class="muted">Our team will review within 24 hours.</p>
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}/p2p/orders/${opts.orderId}`, 'Open this link in Pi Browser to view the order:')}
-    `),
+      ${heading(copy.expiring.heading)}
+      ${paragraph(copy.greeting(opts.username))}
+      ${paragraph(copy.expiring.intro(opts.listing, opts.daysLeft))}
+      ${listingCard(opts.listing)}
+      ${ctaButton(copy.expiring.cta, editListingUrl(opts.listing.id), opts.locale)}
+    `, opts.locale),
   });
 }
 
@@ -252,34 +220,16 @@ export async function emailOrderDisputed(opts: {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Welcome email for new users */
-export async function emailWelcome(opts: { to: string; username: string }): Promise<void> {
+export async function emailWelcome(opts: { to: string; username: string; locale?: AlertLocale }): Promise<void> {
+  const copy = alertCopy(opts.locale);
   await sendEmail({
     to: opts.to,
-    subject: `Welcome to OnSwap, ${opts.username}!`,
+    subject: copy.welcome.subject,
     html: emailTemplate(`
-      <h2 style="margin:0 0 8px">Welcome to OnSwap 🎉</h2>
-      <p>Hi <strong>${opts.username}</strong>, your account is ready.</p>
-      <p class="muted">OnSwap is a P2P platform for buying and selling Pi with local payment methods.</p>
-      ${piBrowserLink(`${process.env.CORS_ORIGIN_URL}`, 'Open this link in Pi Browser to start trading:')}
-    `),
-  });
-}
-
-/** Generic fallback alert — for anything without a dedicated template */
-export async function emailAlert(opts: {
-  to: string; subject: string; title: string; body: string; ctaText?: string; ctaUrl?: string;
-}): Promise<void> {
-  const title = escapeHtml(opts.title);
-  const body = escapeHtml(opts.body);
-  const ctaText = opts.ctaText ? escapeHtml(opts.ctaText) : undefined;
-
-  await sendEmail({
-    to: opts.to,
-    subject: opts.subject,
-    html: emailTemplate(`
-      <h2 style="margin:0 0 8px">${title}</h2>
-      <p>${body}</p>
-      ${ctaText && opts.ctaUrl ? piBrowserLink(opts.ctaUrl, `${ctaText} — open this link in Pi Browser:`) : ''}
-    `),
+      ${heading(copy.welcome.heading)}
+      ${paragraph(copy.greeting(opts.username))}
+      ${paragraph(copy.welcome.intro)}
+      ${ctaButton(copy.welcome.cta, appUrl('/'), opts.locale)}
+    `, opts.locale),
   });
 }

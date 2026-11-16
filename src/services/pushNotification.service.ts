@@ -10,20 +10,40 @@ import logger from "../config/loggingConfig";
 
 // ─── Init (call once at app startup) ────────────────────────────────────────
 
-export function initFirebase(): void {
-  if (getApps().length) return;
+/**
+ * Returns true when Firebase is ready. Never throws: a missing or malformed
+ * Firebase configuration must not stop the server (or the database
+ * connection) from starting. Push simply stays off until it is configured.
+ */
+export function initFirebase(): boolean {
+  if (getApps().length) return true;
 
-  const rawKey = process.env.FIREBASE_PRIVATE_KEY!;
-  const privateKey = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
+  const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
+  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+    logger.warn("[Firebase] Not configured (FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY); push is disabled");
+    return false;
+  }
 
-  const serviceAccount: ServiceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID!,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-    privateKey,
-  };
+  try {
+    const serviceAccount: ServiceAccount = {
+      projectId: FIREBASE_PROJECT_ID,
+      clientEmail: FIREBASE_CLIENT_EMAIL,
+      privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    };
 
-  initializeApp({ credential: cert(serviceAccount) });
-  console.log("[Firebase] Initialized ✓");
+    initializeApp({ credential: cert(serviceAccount) });
+    logger.info("[Firebase] Initialized");
+    return true;
+  } catch (err) {
+    logger.error("[Firebase] Failed to initialize; push is disabled:", err);
+    return false;
+  }
+}
+
+/** Messaging client, initializing Firebase on first use (serverless cold starts). */
+function messaging() {
+  if (!initFirebase()) throw new Error("Push notifications are not configured");
+  return getMessaging();
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,8 +82,8 @@ function buildWebpush(payload: PushPayload): NonNullable<Message["webpush"]> {
     notification: {
       title: payload.title,
       body: payload.body,
-      icon: "/icons/icon-192x192.png",
-      badge: "/icons/badge-72x72.png",
+      icon: "/android-chrome-192x192.png",
+      badge: "/favicon-32x32.png",
       ...(payload.imageUrl && { image: payload.imageUrl }),
     },
   };
@@ -79,7 +99,7 @@ export async function sendToToken(token: string, payload: PushPayload): Promise<
     data: payload.data,
     webpush: buildWebpush(payload),
   };
-  return getMessaging().send(message);
+  return messaging().send(message);
 }
 
 /**
@@ -104,7 +124,7 @@ export async function sendToTokens(
       webpush,
     }));
 
-    const batchResponse = await getMessaging().sendEach(messages);
+    const batchResponse = await messaging().sendEach(messages);
 
     result.successCount += batchResponse.successCount;
     result.failureCount += batchResponse.failureCount;
@@ -130,7 +150,7 @@ export async function sendToTopic(topic: string, payload: PushPayload): Promise<
     data: payload.data,
     webpush: buildWebpush(payload),
   };
-  return getMessaging().send(message);
+  return messaging().send(message);
 }
 
 // ─── Topic subscription helpers ──────────────────────────────────────────────
@@ -139,14 +159,14 @@ export async function subscribeToTopic(
   tokens: string[],
   topic: string
 ): Promise<MessagingTopicManagementResponse> {
-  return getMessaging().subscribeToTopic(tokens, topic);
+  return messaging().subscribeToTopic(tokens, topic);
 }
 
 export async function unsubscribeFromTopic(
   tokens: string[],
   topic: string
 ): Promise<MessagingTopicManagementResponse> {
-  return getMessaging().unsubscribeFromTopic(tokens, topic);
+  return messaging().unsubscribeFromTopic(tokens, topic);
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -157,12 +177,12 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
-/** Fire-and-log variant; returns the result so callers can purge stale tokens. */
+/** Send-and-forget variant: logs counts and returns the stale tokens for the caller to purge. */
 export async function pushToTokens(
   tokens: string[],
   payload: PushPayload
-): Promise<void> {
+): Promise<string[]> {
   const result = await sendToTokens(tokens, payload);
-  logger.info("[FCM] Sent:", result);
-  return;
+  logger.info(`[FCM] Sent: ${result.successCount} ok, ${result.failureCount} failed`);
+  return result.failedTokens;
 }
