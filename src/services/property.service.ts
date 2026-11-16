@@ -367,7 +367,7 @@ class PropertyService {
       const now = new Date();
 
       // 1️⃣ Find the property to get its coordinates
-      const targetProperty = await Property.findById(propertyId).select("map_location").lean();
+      const targetProperty = await Property.findById(propertyId).select("category map_location").lean();
 
       if (!targetProperty || !targetProperty.map_location?.coordinates) {
         throw new Error("Property location not found");
@@ -386,6 +386,7 @@ class PropertyService {
 
             query: { 
               _id: { $ne: targetProperty._id },
+              category: targetProperty.category,
               status: PropertyStatusEnum.available,
               expired_by: { $gt: now }, 
             }, // exclude itself and return only available, non-expired properties
