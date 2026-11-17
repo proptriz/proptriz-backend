@@ -3,7 +3,23 @@ import PropertyService from "../services/property.service";
 import logger from "../config/loggingConfig";
 import { IUser } from "../types";
 import runExtractProperty from "../utils/extractProperty";
+import { ladderFilters, placeLadderFilters } from "../postcode";
+import type { MatchTier, TierFilter } from "../postcode";
 // import {populateUsertype} from "../../scripts/propMigrations"
+
+/** Turns a tier's Mongo filter back into the query params the client should send for the next page. */
+const describeApplied = (filter: Record<string, string>) => {
+  const seg = (k: string) => filter[`postcode.segments.${k}`];
+  if (seg("state")) {
+    return { postcode: ["state", "lga", "district", "area"].map(seg).filter(Boolean).join("-") };
+  }
+  return {
+    place_country: filter.country,
+    place_region: filter["place.region"],
+    place_subregion: filter["place.subregion"],
+    place_area: filter["place.area"],
+  };
+};
 
 const PropertyController = {
   
@@ -147,6 +163,29 @@ const PropertyController = {
         }
       }
 
+      // ✅ Chosen location, as tiers from most to least specific:
+      //    - postcode=LA-11-U34   Nigerian postcode or prefix (area -> district -> LGA -> state)
+      //    - place_country=KE&place_region=..&place_subregion=..&place_area=..   any country, by name
+      //    With widen=1 an empty first page falls back to the next tier; `match_tier` and `applied`
+      //    in the response say which one was used (send `applied` back for the next page).
+      const qs = (k: string) => req.query[k]?.toString().trim() || undefined;
+      const postcodeQuery = qs("postcode");
+      let locationTiers: TierFilter[] = [];
+      if (postcodeQuery) {
+        locationTiers = ladderFilters(postcodeQuery);
+        if (!locationTiers.length) {
+          return res.status(400).json({ success: false, message: "Invalid postcode or prefix" });
+        }
+      } else if (qs("place_country")) {
+        locationTiers = placeLadderFilters({
+          country: qs("place_country"),
+          region: qs("place_region"),
+          subregion: qs("place_subregion"),
+          area: qs("place_area"),
+        });
+      }
+      const widen = req.query.widen === "1" && !cursor;
+
       // ✅ Geo Bounds Filter
       if (ne_lat && ne_lng && sw_lat && sw_lng) {
         propertyFilter.map_location = {
@@ -160,16 +199,33 @@ const PropertyController = {
       }
 
       // await populateUsertype()
-      const result = await PropertyService.getProperties(
-        searchQuery,
-        propertyFilter,
-        pageCursor
-      );
+      if (!locationTiers.length) {
+        const result = await PropertyService.getProperties(searchQuery, propertyFilter, pageCursor);
+        return res.status(200).json({ success: true, ...result });
+      }
+
+      // A chosen location replaces the map viewport: the client re-centres on the results.
+      delete propertyFilter.map_location;
+
+      let matchTier: MatchTier = locationTiers[0].tier;
+      let applied = locationTiers[0].filter;
+      let result = await PropertyService.getProperties(searchQuery, { ...propertyFilter, ...applied }, pageCursor);
+      if (widen) {
+        for (const step of locationTiers.slice(1)) {
+          if (result.properties.length) break;
+          matchTier = step.tier;
+          applied = step.filter;
+          result = await PropertyService.getProperties(searchQuery, { ...propertyFilter, ...applied }, pageCursor);
+        }
+      }
 
       // logger.info("Properties fetched successfully:", result.properties.length);
       return res.status(200).json({
         success: true,
         ...result,
+        match_tier: matchTier,
+        widened: matchTier !== locationTiers[0].tier,
+        applied: describeApplied(applied),
       });
     } catch (error: any) {
       logger.error("Controller Error fetching all properties:", error);
@@ -257,16 +313,23 @@ const PropertyController = {
       // logger.info("Fetching Nearest properties from property ID:", {propertyId});
 
       const limit = parseInt(req.query.limit as string, 10) || 6;
+      const requested = String(req.query.tier ?? "auto");
+      const tier = (["area", "district", "subregion", "region", "distance"].includes(requested)
+        ? requested
+        : "auto") as MatchTier | "auto";
 
-      const properties = await PropertyService.getCollocatedProperties(
+      const { properties, match_tier, tiers } = await PropertyService.getCollocatedProperties(
         propertyId,
-        limit
+        limit,
+        tier
       );
 
       // logger.info("Nearest Properties fetched successfully:", properties.length);
       return res.status(200).json({
         success: true,
         properties,
+        match_tier, // which tier these came from
+        tiers,      // tiers this listing supports, most specific first
         totalPages: Math.ceil(properties.length / limit),
       });
 
@@ -337,6 +400,61 @@ const PropertyController = {
     } catch (error: any) {
       logger.error("Error updating property:", error.message);
       res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // Search-box suggestions with listing counts: postcode prefixes (Nigeria) or place names (any country)
+  async suggestLocations(req: Request, res: Response) {
+    try {
+      const q = req.query.q?.toString().trim() ?? "";
+      if (q.length < 2 || q.length > 40) {
+        return res.status(200).json({ success: true, suggestions: [] });
+      }
+      const suggestions = await PropertyService.suggestLocations(q);
+      res.setHeader("Cache-Control", "public, max-age=60");
+      return res.status(200).json({ success: true, suggestions });
+    } catch (error: any) {
+      logger.error("Error suggesting locations:", error.message);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // Record a Call / Email / Chat tap and return the full postcode (Nigeria only; null elsewhere)
+  async recordContact(req: Request, res: Response) {
+    try {
+      const authUser = req.currentUser as IUser;
+      const channel = String(req.body?.channel ?? "");
+      if (!["call", "email", "chat"].includes(channel)) {
+        return res.status(400).json({ success: false, message: "channel must be call, email or chat" });
+      }
+      const result = await PropertyService.recordContact(
+        req.params.pid,
+        authUser,
+        channel as "call" | "email" | "chat"
+      );
+      return res.status(200).json({ success: true, ...result });
+    } catch (error: any) {
+      logger.error("Error recording property contact:", error.message);
+      return res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // Full postcode: owner, or a user who has already contacted the agent
+  async getPostcode(req: Request, res: Response) {
+    try {
+      const authUser = req.currentUser as IUser;
+      const result = await PropertyService.getFullPostcode(req.params.pid, authUser);
+      if (!result) {
+        return res.status(403).json({
+          success: false,
+          code: "contact_required",
+          message: "Contact the agent to see the exact postcode",
+        });
+      }
+      return res.status(200).json({ success: true, ...result });
+    } catch (error: any) {
+      logger.error("Error fetching property postcode:", error.message);
+      return res.status(400).json({ success: false, message: error.message });
     }
   },
 
