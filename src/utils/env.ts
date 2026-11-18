@@ -22,6 +22,8 @@ export const env = {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
     CLOUDFLARE_AI_WORKERS_TOKEN: process.env.CLOUDFLARE_AI_WORKERS_TOKEN || '',
     CLOUDFLARE_AI_WORKERS_ACCOUNT_ID: process.env.CLOUDFLARE_AI_WORKERS_ACCOUNT_ID || '',
+    CLOUDFLARE_AI_MODEL: process.env.CLOUDFLARE_AI_MODEL || '',
+    
     // NIPOST postcode API (https://docs.postcode.gov.ng). Secret key only; empty disables the feature.
     NGN_POSTCODE: process.env.NGN_POSTCODE || '',
     NGN_POSTCODE_BASE_URL: process.env.NGN_POSTCODE_BASE_URL || '',
