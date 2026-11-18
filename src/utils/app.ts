@@ -30,6 +30,9 @@ const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+// Scheduler endpoints are called server-to-server and protected by JOBS_SECRET,
+// so they sit before CORS (a browser Origin header must not be able to break them).
+app.use("/api/v1/internal", internalRoutes);
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -52,7 +55,6 @@ app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/api/v1/landmarks", landmarkRouter);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/n", trackedLinkRoutes);
-app.use("/api/v1/internal", internalRoutes);
 app.use("/", homeRoutes);
 
 export default app
