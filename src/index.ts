@@ -3,12 +3,14 @@ import app from "./utils/app"
 import { env } from "./utils/env";
 import { connectDB } from "./config/dbConnection";
 import logger from "./config/loggingConfig";
+import { initFirebase } from "./services/pushNotification.service";
 
 dotenv.config();
 
 const startServer = async () => {
   logger.info("Initiating server setup...");
   try {
+    initFirebase();
     // Establish connection to MongoDB
     await connectDB();
 

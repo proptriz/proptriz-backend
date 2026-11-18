@@ -11,6 +11,8 @@ import paymentsRouter from "../routes/payment.routes";
 import requestLogger from "../middlewares/logger";
 import settingsRoutes from "../routes/userSettings.routes";
 import landmarkRouter from "../routes/landmark.routes";
+import notificationRoutes, { trackedLinkRoutes } from "../routes/notification.routes";
+import internalRoutes from "../routes/internal.routes";
 import { postcodeRouter } from "../postcode";
 
 dotenv.config();
@@ -29,6 +31,9 @@ const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+// Scheduler endpoints are called server-to-server and protected by JOBS_SECRET,
+// so they sit before CORS (a browser Origin header must not be able to break them).
+app.use("/api/v1/internal", internalRoutes);
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -49,6 +54,8 @@ app.use('/api/v1/payments', paymentsRouter);
 app.use("/api/v1/property", propertyRoutes);
 app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/api/v1/landmarks", landmarkRouter);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/n", trackedLinkRoutes);
 app.use("/api/v1/postcode", postcodeRouter);
 app.use("/", homeRoutes);
 
