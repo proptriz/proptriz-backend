@@ -22,5 +22,12 @@ export const env = {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
     CLOUDFLARE_AI_WORKERS_TOKEN: process.env.CLOUDFLARE_AI_WORKERS_TOKEN || '',
     CLOUDFLARE_AI_WORKERS_ACCOUNT_ID: process.env.CLOUDFLARE_AI_WORKERS_ACCOUNT_ID || '',
-    CLOUDFLARE_AI_MODEL: process.env.CLOUDFLARE_AI_MODEL || '@cf/zai-org/glm-4.7-flash',
+    // NIPOST postcode API (https://docs.postcode.gov.ng). Secret key only; empty disables the feature.
+    NGN_POSTCODE: process.env.NGN_POSTCODE || '',
+    NGN_POSTCODE_BASE_URL: process.env.NGN_POSTCODE_BASE_URL || '',
+    NIPOST_TIMEOUT_MS: process.env.NIPOST_TIMEOUT_MS || '',
+    NIPOST_MAX_RPM: process.env.NIPOST_MAX_RPM || '',
+    POSTCODE_PUBLIC_SEGMENTS: process.env.POSTCODE_PUBLIC_SEGMENTS || '',
+    POSTCODE_VERIFY_MAX_M: process.env.POSTCODE_VERIFY_MAX_M || '',
+    NOMINATIM_USER_AGENT: process.env.NOMINATIM_USER_AGENT || '',
 }

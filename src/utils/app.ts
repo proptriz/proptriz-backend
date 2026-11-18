@@ -13,6 +13,7 @@ import settingsRoutes from "../routes/userSettings.routes";
 import landmarkRouter from "../routes/landmark.routes";
 import notificationRoutes, { trackedLinkRoutes } from "../routes/notification.routes";
 import internalRoutes from "../routes/internal.routes";
+import { postcodeRouter } from "../postcode";
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.use("/api/v1/property-review", propertyReviewRoutes);
 app.use("/api/v1/landmarks", landmarkRouter);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/n", trackedLinkRoutes);
+app.use("/api/v1/postcode", postcodeRouter);
 app.use("/", homeRoutes);
 
 export default app

@@ -9,7 +9,7 @@ export const getLoggerConfig = (): { level: string; format: any; transports: any
   const loggerTransports: any[] = [];
 
   if (env.NODE_ENV === 'development' || env.NODE_ENV === 'sandbox') {
-    logLevel = 'info';
+    logLevel = 'debug';
     logFormat = format.combine(
       format.colorize(),
       format.simple()

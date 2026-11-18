@@ -75,6 +75,34 @@ const propertySchema = new Schema<IProperty>(
       },
       coordinates: { type: [Number], required: true, default: [0, 0] },
     },
+    // ISO 3166-1 alpha-2 of the pin (resolved server-side). Postcode features run only when "NG".
+    country: { type: String, uppercase: true, minlength: 2, maxlength: 2 },
+    // NIPOST postcode (Nigeria only). The full code and its segments are select:false so no
+    // existing endpoint can leak them by returning the whole document; public_code is masked.
+    postcode: {
+      code: { type: String, select: false },          // LA-11-U34-ZR-63
+      public_code: { type: String },                  // LA-11-U34-••-••
+      segments: {
+        state: { type: String, select: false },
+        lga: { type: String, select: false },
+        district: { type: String, select: false },
+        area: { type: String, select: false },
+        unit: { type: String, select: false },
+      },
+      confidence: { type: String, enum: ["high", "medium", "low"] },
+      distance_m: { type: Number },
+      verified: { type: Boolean, default: false },
+      building_use: { type: String },
+      checked_at: { type: Date },                     // unset = never checked; the backfill retries
+    },
+    // Administrative names for the pin (any country). Public. NG: region = state, subregion = LGA.
+    place: {
+      country_name: { type: String },
+      region: { type: String },
+      subregion: { type: String },
+      area: { type: String },
+      verified: { type: Boolean, default: false },
+    },
     features: { type: [String] },
     status: {
       type: String,
@@ -132,6 +160,33 @@ propertySchema.index(
     name: "property_text_search_idx"
   }
 );
+
+// 🔹 5. Postcode ladder: same area -> district -> LGA, newest first (cursor pagination)
+propertySchema.index(
+  {
+    status: 1,
+    country: 1,
+    "postcode.segments.state": 1,
+    "postcode.segments.lga": 1,
+    "postcode.segments.district": 1,
+    "postcode.segments.area": 1,
+    createdAt: -1,
+    _id: -1
+  },
+  { name: "postcode_ladder_idx" }
+);
+
+// 🔹 5b. Place ladder (any country): same neighbourhood -> sub-region -> region
+propertySchema.index(
+  { status: 1, country: 1, "place.region": 1, "place.subregion": 1, "place.area": 1, createdAt: -1, _id: -1 },
+  { name: "place_ladder_idx" }
+);
+
+// 🔹 6. Exact postcode lookups
+propertySchema.index({ "postcode.code": 1 }, { name: "postcode_code_idx", sparse: true });
+
+// 🔹 7. Backfill: Nigerian listings still needing a postcode check
+propertySchema.index({ country: 1, "postcode.checked_at": 1 }, { name: "postcode_backfill_idx" });
 
 // 🌀 Pre-save hook for unique slug
 propertySchema.pre<IProperty & Document>("save", async function (next) {
