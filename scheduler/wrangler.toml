@@ -1,0 +1,9 @@
+name = "proptriz-alert-scheduler"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+API_BASE = "https://proptriz-backend-staging.vercel.app/api/v1"
+
+[triggers]
+crons = ["*/10 * * * *", "0 * * * *"]
