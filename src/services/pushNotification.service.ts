@@ -91,15 +91,31 @@ function buildWebpush(payload: PushPayload): NonNullable<Message["webpush"]> {
 
 // ─── Core send helpers ────────────────────────────────────────────────────────
 
+/**
+ * Message for one device token.
+ *
+ * It is data-only on purpose: the title, body and image travel in `data`, and the
+ * service worker (and the open page) show the notification themselves. With a
+ * `notification` block the browser shows it by itself when the tab is closed but
+ * hands it silently to the page when the tab is open, so a person looking at the
+ * app saw nothing. One path for both cases keeps taps and icons consistent.
+ */
+export function buildTokenMessage(token: string, payload: PushPayload): Message {
+  return {
+    token,
+    data: {
+      ...(payload.data ?? {}),
+      title: payload.title,
+      body: payload.body,
+      ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+    },
+    webpush: { headers: { Urgency: "high", TTL: "86400" } },
+  };
+}
+
 /** Send to a single FCM token. */
 export async function sendToToken(token: string, payload: PushPayload): Promise<string> {
-  const message: Message = {
-    token,
-    notification: buildNotification(payload),
-    data: payload.data,
-    webpush: buildWebpush(payload),
-  };
-  return messaging().send(message);
+  return messaging().send(buildTokenMessage(token, payload));
 }
 
 /**
@@ -114,15 +130,7 @@ export async function sendToTokens(
   if (!tokens.length) return result;
 
   for (const chunk of chunkArray(tokens, 500)) {
-    const notification = buildNotification(payload);
-    const webpush = buildWebpush(payload);
-
-    const messages: Message[] = chunk.map((token) => ({
-      token,
-      notification,
-      data: payload.data,
-      webpush,
-    }));
+    const messages: Message[] = chunk.map((token) => buildTokenMessage(token, payload));
 
     const batchResponse = await messaging().sendEach(messages);
 
