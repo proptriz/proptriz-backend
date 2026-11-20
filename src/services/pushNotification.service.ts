@@ -8,6 +8,77 @@ import {
 
 import logger from "../config/loggingConfig";
 
+// ─── Credentials ─────────────────────────────────────────────────────────────
+
+/**
+ * Turns a pasted private key into valid PEM. Hosting dashboards and .env files
+ * mangle it in predictable ways: wrapping quotes, a trailing comma copied from
+ * the JSON, literal "\n" instead of line breaks, or line breaks replaced by spaces.
+ * Rebuilding the PEM from its base64 body handles all of them.
+ */
+export function normalizePrivateKey(raw: string): string {
+  let key = raw.trim().replace(/,$/, "").trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1);
+  }
+  key = key.replace(/\\r/g, "").replace(/\\n/g, "\n").replace(/\r/g, "");
+
+  const match = key.match(/-----BEGIN ([A-Z ]*PRIVATE KEY)-----([\s\S]*?)-----END \1-----/);
+  if (!match) return key;
+
+  const body = match[2].replace(/[^A-Za-z0-9+/=]/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${match[1]}-----\n${lines.join("\n")}\n-----END ${match[1]}-----\n`;
+}
+
+type CredentialResult =
+  | { ok: true; account: ServiceAccount }
+  | { ok: false; reason: string };
+
+/**
+ * Reads the Firebase service account from the environment, either as
+ * FIREBASE_SERVICE_ACCOUNT_JSON (the whole JSON file, or its base64: easiest to
+ * paste correctly) or as the three separate variables.
+ */
+export function loadServiceAccount(env: NodeJS.ProcessEnv): CredentialResult {
+  const whole = env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+  if (whole) {
+    try {
+      const text = whole.startsWith("{") ? whole : Buffer.from(whole, "base64").toString("utf8");
+      const json = JSON.parse(text);
+      if (!json.project_id || !json.client_email || !json.private_key) {
+        return { ok: false, reason: "FIREBASE_SERVICE_ACCOUNT_JSON is missing project_id, client_email or private_key" };
+      }
+      return {
+        ok: true,
+        account: {
+          projectId: json.project_id,
+          clientEmail: json.client_email,
+          privateKey: normalizePrivateKey(json.private_key),
+        },
+      };
+    } catch {
+      return { ok: false, reason: "FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON (or base64 of it)" };
+    }
+  }
+
+  const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = env;
+  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+    return {
+      ok: false,
+      reason: "Not configured (set FIREBASE_SERVICE_ACCOUNT_JSON, or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY)",
+    };
+  }
+  return {
+    ok: true,
+    account: {
+      projectId: FIREBASE_PROJECT_ID.trim(),
+      clientEmail: FIREBASE_CLIENT_EMAIL.trim(),
+      privateKey: normalizePrivateKey(FIREBASE_PRIVATE_KEY),
+    },
+  };
+}
+
 // ─── Init (call once at app startup) ────────────────────────────────────────
 
 /**
@@ -18,24 +89,23 @@ import logger from "../config/loggingConfig";
 export function initFirebase(): boolean {
   if (getApps().length) return true;
 
-  const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
-  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    logger.warn("[Firebase] Not configured (FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY); push is disabled");
+  const credentials = loadServiceAccount(process.env);
+  if (!credentials.ok) {
+    logger.warn(`[Firebase] ${credentials.reason}; push is disabled`);
     return false;
   }
 
   try {
-    const serviceAccount: ServiceAccount = {
-      projectId: FIREBASE_PROJECT_ID,
-      clientEmail: FIREBASE_CLIENT_EMAIL,
-      privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    };
-
-    initializeApp({ credential: cert(serviceAccount) });
+    initializeApp({ credential: cert(credentials.account) });
     logger.info("[Firebase] Initialized");
     return true;
-  } catch (err) {
-    logger.error("[Firebase] Failed to initialize; push is disabled:", err);
+  } catch (err: any) {
+    logger.error(
+      `[Firebase] Failed to initialize (${err?.code ?? "error"}); push is disabled. ` +
+        "If this mentions the private key, paste the whole private_key value from the service account JSON, " +
+        "or set FIREBASE_SERVICE_ACCOUNT_JSON to the whole file's contents (or its base64).",
+      err,
+    );
     return false;
   }
 }
@@ -91,15 +161,31 @@ function buildWebpush(payload: PushPayload): NonNullable<Message["webpush"]> {
 
 // ─── Core send helpers ────────────────────────────────────────────────────────
 
+/**
+ * Message for one device token.
+ *
+ * It is data-only on purpose: the title, body and image travel in `data`, and the
+ * service worker (and the open page) show the notification themselves. With a
+ * `notification` block the browser shows it by itself when the tab is closed but
+ * hands it silently to the page when the tab is open, so a person looking at the
+ * app saw nothing. One path for both cases keeps taps and icons consistent.
+ */
+export function buildTokenMessage(token: string, payload: PushPayload): Message {
+  return {
+    token,
+    data: {
+      ...(payload.data ?? {}),
+      title: payload.title,
+      body: payload.body,
+      ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
+    },
+    webpush: { headers: { Urgency: "high", TTL: "86400" } },
+  };
+}
+
 /** Send to a single FCM token. */
 export async function sendToToken(token: string, payload: PushPayload): Promise<string> {
-  const message: Message = {
-    token,
-    notification: buildNotification(payload),
-    data: payload.data,
-    webpush: buildWebpush(payload),
-  };
-  return messaging().send(message);
+  return messaging().send(buildTokenMessage(token, payload));
 }
 
 /**
@@ -114,15 +200,7 @@ export async function sendToTokens(
   if (!tokens.length) return result;
 
   for (const chunk of chunkArray(tokens, 500)) {
-    const notification = buildNotification(payload);
-    const webpush = buildWebpush(payload);
-
-    const messages: Message[] = chunk.map((token) => ({
-      token,
-      notification,
-      data: payload.data,
-      webpush,
-    }));
+    const messages: Message[] = chunk.map((token) => buildTokenMessage(token, payload));
 
     const batchResponse = await messaging().sendEach(messages);
 
