@@ -136,7 +136,24 @@ export interface SendResult {
 const STALE_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
+  // The token belongs to a different Firebase project (for example one created
+  // before the project was replaced). It can never work with these credentials;
+  // the browser registers a fresh token the next time the person opens the app.
+  "messaging/mismatched-credential",
 ]);
+
+/**
+ * True when a failed send means this token can never work again, so it should be
+ * forgotten. "Permission denied by the third party webpush service" is the browser
+ * vendor's push service refusing a subscription that was made with a different
+ * key (for example before the Firebase project changed); the browser must subscribe again.
+ */
+export function isDeadTokenError(error?: { code?: string; message?: string }): boolean {
+  if (!error) return false;
+  if (error.code && STALE_CODES.has(error.code)) return true;
+  const text = `${error.message ?? ""}`;
+  return /THIRD_PARTY_PERMISSION_DENIED|Permission denied by the third party webpush service/i.test(text);
+}
 
 function buildNotification(payload: PushPayload) {
   return {
@@ -209,8 +226,8 @@ export async function sendToTokens(
 
     batchResponse.responses.forEach((resp: SendResponse, idx: number) => {
       if (!resp.success) {
-        logger.warn(`[FCM] Failed token ...${chunk[idx].slice(-8)}: ${resp.error?.code}`);
-        if (resp.error && STALE_CODES.has(resp.error.code)) {
+        logger.warn(`[FCM] Failed token ...${chunk[idx].slice(-8)}: ${resp.error?.code} - ${resp.error?.message}`);
+        if (isDeadTokenError(resp.error)) {
           result.failedTokens.push(chunk[idx]);
         }
       }
