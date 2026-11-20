@@ -21,6 +21,10 @@ One Firebase project serves web, Android and iOS.
 3. Project settings -> Service accounts -> **Generate new private key**. From the downloaded JSON, set on the backend:
    `FIREBASE_PROJECT_ID` = `project_id`, `FIREBASE_CLIENT_EMAIL` = `client_email`, `FIREBASE_PRIVATE_KEY` = `private_key`.
    Treat the file as a password; do not commit it.
+   Easier and less error-prone: set a single variable `FIREBASE_SERVICE_ACCOUNT_JSON` to the whole file's contents
+   (or to its base64: `node -e "console.log(require('fs').readFileSync('key.json').toString('base64'))"`).
+   If it is set, the three variables above are not needed. The key is repaired automatically if quotes, spaces or
+   `\n` sequences got mixed in while pasting.
 4. The frontend and backend must use the same Firebase project, or tokens are rejected as invalid.
 5. Redeploy both after changing variables. Every person must press the Push switch again once, because
    tokens from the old project do not work in the new one (old tokens are removed automatically when FCM rejects them).
